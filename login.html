@@ -43,7 +43,7 @@
     color: #333;
   }
 
-  /* 統一所有輸入框樣式 */
+  /* 統一輸入框 */
   input {
     width: 100%;
     padding: 10px 12px;
@@ -54,7 +54,7 @@
     box-sizing: border-box;
   }
 
-  /* 統一所有主要按鈕樣式 (深藍色) */
+  /* 統一主要按鈕 (深藍) */
   button {
     width: 100%;
     padding: 10px;
@@ -71,7 +71,7 @@
     background-color: #0039b0;
   }
 
-  /* 統一所有次要按鈕樣式 (灰色) */
+  /* 統一次要按鈕 (灰色) */
   .btn-secondary {
     background-color: #ccc !important;
     color: #333 !important;
@@ -89,7 +89,7 @@
     line-height: 1.5;
   }
 
-  /* --- 彈窗樣式 --- */
+  /* --- 彈窗通用樣式 --- */
   .overlay {
     display: none;
     position: fixed;
@@ -117,7 +117,8 @@
   .modal-content p {
     font-size: 14px;
     color: #666;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
+    line-height: 1.6;
   }
 
   .forgot-link {
@@ -138,7 +139,7 @@
 <body>
 
   <div class="login-container">
-    <img class="logo" src="DPS_logo.jpg" alt="公司Logo">
+    <img class="logo" src="images/DPS_logo.jpg" alt="公司Logo">
     <h1>即時地震監測系統</h1>
 
     <label for="username">帳號 / Username</label>
@@ -178,15 +179,34 @@
     </div>
   </div>
 
+  <div id="messageOverlay" class="overlay">
+    <div class="modal-content">
+      <h2 id="messageTitle">提示</h2>
+      <p id="messageBody"></p>
+      <button id="messageCloseBtn">確定</button>
+    </div>
+  </div>
+
   <script>
     const API_BASE = 'http://127.0.0.1:5001/api';
     let tempUser = null;
 
-    // 登入邏輯
+    // --- 通用訊息彈窗函式 ---
+    function showMessage(title, body) {
+      document.getElementById('messageTitle').innerText = title;
+      document.getElementById('messageBody').innerText = body;
+      document.getElementById('messageOverlay').style.display = 'flex';
+    }
+
+    document.getElementById('messageCloseBtn').addEventListener('click', () => {
+      document.getElementById('messageOverlay').style.display = 'none';
+    });
+
+    // --- 登入邏輯 ---
     document.getElementById('loginBtn').addEventListener('click', async () => {
       const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
-      if (!username || !password) return alert('請輸入帳號與密碼');
+      if (!username || !password) return showMessage('提醒', '請輸入帳號與密碼');
 
       try {
         const response = await fetch(`${API_BASE}/login`, {
@@ -203,28 +223,26 @@
             successLogin(tempUser);
           }
         } else {
-          alert('登入失敗：' + (result.error || '未知錯誤'));
+          showMessage('登入失敗', result.error || '帳號或密碼錯誤');
         }
       } catch (error) {
-        alert('連線伺服器失敗');
+        showMessage('連線錯誤', '連線伺服器失敗，請檢查後端是否啟動。');
       }
     });
 
-    // 忘記密碼彈窗控制
-    const forgotOverlay = document.getElementById('forgotOverlay');
+    // --- 忘記密碼彈窗控制 ---
     document.getElementById('forgotPwdLink').addEventListener('click', (e) => {
       e.preventDefault();
-      forgotOverlay.style.display = 'flex';
+      document.getElementById('forgotOverlay').style.display = 'flex';
     });
 
     document.getElementById('closeForgotBtn').addEventListener('click', () => {
-      forgotOverlay.style.display = 'none';
+      document.getElementById('forgotOverlay').style.display = 'none';
     });
 
-    // 發送忘記密碼郵件
     document.getElementById('sendForgotBtn').addEventListener('click', async () => {
       const account = document.getElementById('forgotInput').value.trim();
-      if (!account) return alert('請輸入帳號或 Email');
+      if (!account) return showMessage('提醒', '請輸入帳號或 Email');
 
       const btn = document.getElementById('sendForgotBtn');
       btn.disabled = true;
@@ -238,23 +256,23 @@
         });
         const result = await response.json();
         if (response.ok) {
-          alert(result.message);
-          forgotOverlay.style.display = 'none';
+          document.getElementById('forgotOverlay').style.display = 'none';
+          showMessage('發送成功', result.message);
         } else {
-          alert('失敗：' + result.error);
+          showMessage('發送失敗', result.error);
         }
       } catch (e) {
-        alert('連線失敗');
+        showMessage('連線錯誤', '發送失敗，請稍後再試。');
       } finally {
         btn.disabled = false;
         btn.innerText = '發送重設郵件';
       }
     });
 
-    // 補填 Email 邏輯
+    // --- 補填 Email 邏輯 ---
     document.getElementById('submitEmailBtn').addEventListener('click', async () => {
       const emailInput = document.getElementById('firstTimeEmail').value.trim();
-      if (!emailInput || !emailInput.includes('@')) return alert('請輸入有效的 Email');
+      if (!emailInput || !emailInput.includes('@')) return showMessage('提醒', '請輸入有效的 Email');
 
       try {
         const response = await fetch(`${API_BASE}/update_user_email`, {
@@ -264,23 +282,44 @@
         });
         if (response.ok) {
           tempUser.email = emailInput;
-          alert('Email 設定成功！');
-          successLogin(tempUser);
+          document.getElementById('emailOverlay').style.display = 'none';
+          // 使用 showMessage 告知成功後，關閉彈窗時再跳轉
+          showMessage('設定完成', 'Email 設定成功！');
+          document.getElementById('messageCloseBtn').onclick = () => {
+            successLogin(tempUser);
+          };
         } else {
           const res = await response.json();
-          alert('設定失敗：' + res.error);
+          showMessage('設定失敗', res.error);
         }
       } catch (error) {
-        alert('提交失敗');
+        showMessage('連線錯誤', '提交失敗');
       }
     });
 
     function successLogin(user) {
       sessionStorage.setItem('userData', JSON.stringify(user));
-      alert('登入成功！歡迎 ' + user.name);
       window.location.href = "index.html"; 
     }
+
+    // 支援 Enter 鍵
+    document.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const messageOverlay = document.getElementById('messageOverlay');
+        const emailOverlay = document.getElementById('emailOverlay');
+        const forgotOverlay = document.getElementById('forgotOverlay');
+
+        if (messageOverlay.style.display === 'flex') {
+          document.getElementById('messageCloseBtn').click();
+        } else if (emailOverlay.style.display === 'flex') {
+          document.getElementById('submitEmailBtn').click();
+        } else if (forgotOverlay.style.display === 'flex') {
+          document.getElementById('sendForgotBtn').click();
+        } else {
+          document.getElementById('loginBtn').click();
+        }
+      }
+    });
   </script>
 </body>
-
 </html>
