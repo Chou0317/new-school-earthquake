@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>帳號管理</title>
+<style>
+/* 完全保留原本 CSS 樣式 */
+:root{
+  --bg:#6c6c6c; --card:#ffffff; --primary:#002b88; --primary-light:#3b82f6;
+  --danger:#ef4444; --muted:#6b7280; --shadow:0 6px 18px rgba(15,23,42,0.08); --radius:12px;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans TC','Microsoft JhengHei',sans-serif;
+}
+html,body{height:100%;margin:0;background:var(--bg);}
+body{padding:24px;display:flex;justify-content:center;}
+.card{ width:100%; max-width:1400px; background:var(--card); border-radius:0; box-shadow:var(--shadow); overflow:hidden; display:flex; flex-direction:column; height:95vh; }
+.header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:var(--primary);color:#fff;flex-shrink:0;}
+.title{font-size:20px;font-weight:600;}
+.btn{border:0;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;}
+.btn-primary{background:var(--primary-light);color:#fff;}
+.btn-danger{background:var(--danger) !important; color:#fff !important;}
+.btn-close{ background:#fff; border:1px solid #ccc; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:600;font-size:14px;}
+.icon-btn{padding:6px 8px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#fff;cursor:pointer;font-weight:600;}
+.search-row{display:flex;align-items:center;gap:16px;padding:12px 20px;background:#f9fafb;flex-shrink:0; flex-wrap: wrap;}
+.search-row .form-group{ display:flex; align-items:center; gap:8px; }
+.search-row label{font-weight:500;color:var(--muted);font-size:14px;}
+.search-row input, .search-row select{ height:32px; padding:4px 8px; border-radius:6px; border:1px solid #ccc; font-size:13px; }
+#countText{ padding:12px 20px; color:var(--muted); display:flex; justify-content:space-between; align-items:center; font-size:14px; background:#f9fafb; border-bottom:1px solid #eee; flex-shrink:0;}
+.list-wrapper{ flex:1; overflow-y:auto; position:relative; background:#fff; }
+.list{ width:100%; border-top:1px solid #eee; border-collapse: collapse; min-width: 1100px; }
+
+.list-head{ 
+  display:flex; align-items:center; padding:10px 15px; background:#f9fafb; font-weight:700; color:var(--muted); position:sticky; top:0; z-index:2; border-bottom:1px solid #eee; 
+}
+.list-row{ 
+  display:flex; align-items:center; padding:12px 15px; border-bottom:1px solid #f2f2f2; transition: background 0.2s;
+}
+.list-row:hover{ background: #fcfcfc; }
+
+/* 欄位比例微調 (新增狀態欄位) */
+.col-1 { width: 50px; flex-shrink: 0; text-align: center; color: var(--muted); } /* 序號 */
+.col-2 { flex: 1.2; padding: 0 10px; } /* 帳號 */
+.col-3 { flex: 1.8; padding: 0 10px; } /* 電子信箱 */
+.col-4 { flex: 1; text-align: center; padding: 0 10px; } /* 名稱 */
+.col-5 { flex: 1; text-align: center; padding: 0 10px; } /* 群組 */
+.col-6 { flex: 0.7; text-align: center; } /* 狀態 (新增) */
+.col-7 { flex: 0.8; text-align: center; } /* 案場關聯 */
+.col-8 { flex: 0.8; text-align: center; } /* 操作 */
+
+.col-2, .col-3, .col-4, .col-5 {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 狀態標籤樣式 */
+.status-y { color: #000; font-weight: 600; }
+.status-n { color: var(--danger); font-weight: 600; }
+
+/* 以下完全保留原有樣式 */
+.empty{padding:40px; text-align:center; color:var(--muted); font-weight:500;}
+.pagination{ display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+.pagination span{ cursor:pointer; padding:3px 8px; color:var(--primary); font-weight:600; font-size:13px; border-radius:4px; }
+.pagination span:hover:not(.disabled):not(.current){ background:#eee; }
+.pagination span.current{ font-weight:700; text-decoration:underline; cursor:default; color:#111; }
+.pagination span.disabled{ color:#999; cursor:default; }
+.pagination-container{ display:flex; justify-content:center; padding:15px 0; background:#fff; border-top:1px solid #eee; flex-shrink:0;}
+.modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,.45);display:flex;align-items:center;justify-content:center;z-index:100;}
+.modal{background:#fff;border-radius:12px;max-width:600px;width:94%;max-height:90vh;display:flex;flex-direction:column;box-shadow:var(--shadow);overflow:hidden;}
+.modal-header{padding:16px 20px;background:var(--primary);color:#fff;font-size:18px;font-weight:600;flex-shrink:0;}
+.modal-body{padding:20px;overflow-y:auto;flex:1;}
+.modal-footer{padding:12px 20px;background:#f9fafb;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #eee; align-items: center;}
+.form-row{display:flex;align-items:center;gap:12px;margin-bottom:15px;}
+.form-row label{width:80px;color:var(--muted);font-weight:500;flex-shrink:0;}
+.pwd-container { flex:1; position: relative; display: flex; align-items: center; }
+.form-row input, .form-row select{flex:1;padding:8px 10px;border-radius:6px;border:1px solid #ccc;outline:none; width: 100%;}
+.form-row input:focus{border-color:var(--primary-light);}
+.eye-toggle { position: absolute; right: 10px; cursor: pointer; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+.add-site-list{ margin-top:10px; border:1px solid #eee; border-radius:6px; max-height:200px; overflow-y:auto; }
+.add-site-list div{padding:8px 12px;background:#fff;border-bottom:1px solid #f2f2f2;display:flex;justify-content:space-between;align-items:center;font-size:14px;}
+.add-site-list div span{cursor:pointer;color:var(--danger);font-weight:bold;font-size:16px;}
+#topBtn{position:fixed;right:25px;bottom:25px;width:45px;height:45px;border-radius:10px;background:var(--primary-light);color:#fff;border:none;cursor:pointer;display:none;z-index:200;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+#confirmLayer { z-index: 500; background: rgba(0,0,0,0.7); display:none; position:fixed; inset:0; align-items:center; justify-content:center; }
+.confirm-card { width: 350px; padding: 24px; background: #fff; border-radius: 12px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+.confirm-btns { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="header">
+    <div class="title">帳號管理</div>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="openModal()">＋ 新增帳號</button>
+    </div>
+  </div>
+
+  <div class="search-row">
+    <div class="form-group">
+      <label>帳號</label><input type="text" id="searchAccount" placeholder="輸入帳號" oninput="debounceSearch()" />
+    </div>
+    <div class="form-group">
+      <label>名稱</label><input type="text" id="searchName" placeholder="輸入名稱" oninput="debounceSearch()" />
+    </div>
+    <div class="form-group">
+      <label>每頁筆數</label>
+      <select id="pageSizeSelect">
+        <option value="25">25</option>
+        <option value="50">50</option>
+        <option value="75">75</option>
+        <option value="100">100</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" style="height:32px; padding:0 15px;" onclick="searchAccountFunc()">搜尋</button>
+  </div>
+
+  <div id="countText">
+    <span>共 0 筆資料</span>
+    <span id="topPagination" class="pagination"></span>
+  </div>
+
+  <div class="list-wrapper" id="listWrapper">
+    <div class="list">
+      <div class="list-head">
+        <div class="col-1">序號</div>
+        <div class="col-2">帳號</div>
+        <div class="col-3">電子信箱</div>
+        <div class="col-4">名稱</div>
+        <div class="col-5">群組</div>
+        <div class="col-6">狀態</div>
+        <div class="col-7">案場關聯</div>
+        <div class="col-8">操作</div>
+      </div>
+      <div id="rowsContainer"></div>
+    </div>
+    <div id="bottomPagination" class="pagination-container pagination"></div>
+  </div>
+</div>
+
+<div id="modal" style="display:none">
+  <div class="modal-backdrop" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header" id="modalTitle">帳號資訊</div>
+      <div class="modal-body">
+        <div class="form-row"><label>帳號</label><input id="accUsername" type="text" /></div>
+        <div class="form-row">
+            <label>密碼</label>
+            <div class="pwd-container">
+                <input id="accPassword" type="password" placeholder="請輸入密碼" />
+                <div class="eye-toggle" onclick="togglePassword()">
+                    <svg id="eyeSvg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                </div>
+            </div>
+        </div>
+        <div class="form-row"><label>電子信箱</label><input id="accEmail" type="email" placeholder="example@mail.com" /></div>
+        <div class="form-row"><label>名稱</label><input id="accName" type="text" /></div>
+        <div class="form-row"><label>群組</label><select id="accGroup"></select></div>
+        <div class="form-row"><label>備註</label><input id="accNote" type="text" /></div>
+        <div class="form-row"><label>啟用</label><select id="accEnable"><option value="Y">啟用</option><option value="N">停用</option></select></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger" id="modalDelBtn" style="margin-right:auto; display:none;" onclick="handleModalDelete()">刪除</button>
+        <button class="btn-close" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" id="confirmBtn" onclick="handleConfirmSave()">確認</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="siteModal" style="display:none">
+  <div class="modal-backdrop" onclick="closeSiteModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header">案場關聯</div>
+      <div class="modal-body">
+        <div class="form-row"><label>帳號</label><input id="siteAcc" type="text" disabled /></div>
+        <div class="form-row">
+          <label>案場</label>
+          <select id="siteSelect"></select>
+          <button class="btn btn-primary" onclick="addSite()">加入</button>
+        </div>
+        <div id="siteList" class="add-site-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-close" onclick="closeSiteModal()">取消</button>
+        <button class="btn btn-primary" onclick="saveSites()">確認</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="confirmLayer">
+    <div class="confirm-card">
+        <h3 id="confirmTitle" style="margin-top:0">確認動作</h3>
+        <p id="confirmDesc" style="color:#666; font-size:14px; line-height:1.5;"></p>
+        <div class="confirm-btns">
+            <button class="btn-close" onclick="hideConfirm()">取消</button>
+            <button id="confirmExecuteBtn" class="btn btn-primary">確定</button>
+        </div>
+    </div>
+</div>
+
+<button id="topBtn" onclick="document.getElementById('listWrapper').scrollTop=0">TOP</button>
+
+<script>
+const API_BASE = 'http://127.0.0.1:5001/api';
+let accounts = [];
+let filteredAccounts = []; 
+let currentPage = 1;
+let pageSize = 25;
+let editingId = null;
+let activeSiteIdx = null;
+let searchTimer = null;
+
+const SVG_OPEN = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>`;
+const SVG_CLOSE = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>`;
+
+function askConfirm(title, desc, callback, isDanger = false) {
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmDesc').textContent = desc;
+    document.getElementById('confirmLayer').style.display = 'flex';
+    const btn = document.getElementById('confirmExecuteBtn');
+    if (isDanger) btn.classList.add('btn-danger'); else btn.classList.remove('btn-danger');
+    btn.onclick = () => { hideConfirm(); callback(); };
+}
+function hideConfirm() { document.getElementById('confirmLayer').style.display = 'none'; }
+
+async function init() {
+    document.getElementById('pageSizeSelect').addEventListener('change', (e) => {
+        pageSize = parseInt(e.target.value);
+        currentPage = 1;
+        render();
+    });
+    await Promise.all([fetchGroups(), fetchSites(), loadAccounts()]);
+}
+
+async function loadAccounts() {
+    try {
+        const res = await fetch(`${API_BASE}/accounts`);
+        accounts = await res.json();
+        searchAccountFunc(); 
+    } catch(e) { 
+        document.getElementById('rowsContainer').innerHTML = '<div class="empty">API 連線失敗，請檢查後端。</div>';
+    }
+}
+
+function debounceSearch() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { searchAccountFunc(); }, 300);
+}
+
+function searchAccountFunc(){
+    const username = document.getElementById('searchAccount').value.trim().toLowerCase();
+    const name = document.getElementById('searchName').value.trim().toLowerCase();
+    filteredAccounts = accounts.filter(a => 
+        (!username || a.username.toLowerCase().includes(username)) && 
+        (!name || a.name.toLowerCase().includes(name))
+    );
+    currentPage = 1;
+    render();
+}
+
+function render(){
+    const container = document.getElementById('rowsContainer');
+    const totalCount = filteredAccounts.length;
+    document.querySelector('#countText span').textContent = `共 ${totalCount} 筆資料`;
+    const totalPages = Math.ceil(totalCount / pageSize) || 1;
+    if(currentPage > totalPages) currentPage = totalPages;
+    container.innerHTML = ''; 
+    if(totalCount === 0){
+        container.innerHTML = '<div class="empty">查無帳號資料</div>';
+        renderPagination(1);
+        return;
+    }
+    const start = (currentPage - 1) * pageSize;
+    const pageData = filteredAccounts.slice(start, start + pageSize);
+    const fragment = document.createDocumentFragment();
+    pageData.forEach((acc, i) => {
+        const realIdx = accounts.findIndex(a => a.id === acc.id);
+        const row = document.createElement('div');
+        row.className = 'list-row';
+        
+        // 狀態文字與樣式判斷
+        const isEnabled = acc.enable === 'Y';
+        const statusText = isEnabled ? '啟用' : '停用';
+        const statusClass = isEnabled ? 'status-y' : 'status-n';
+
+        row.innerHTML = `
+            <div class="col-1">${start + i + 1}</div>
+            <div class="col-2">${acc.username}</div>
+            <div class="col-3">${acc.email || '-'}</div>
+            <div class="col-4">${acc.name}</div>
+            <div class="col-5">${acc.group_name || ''}</div>
+            <div class="col-6 ${statusClass}">${statusText}</div>
+            <div class="col-7"><button class="icon-btn" onclick="openSiteModal(${realIdx})">案場</button></div>
+            <div class="col-8"><button class="icon-btn" onclick="editAccount(${realIdx})">編輯</button></div>
+        `;
+        fragment.appendChild(row);
+    });
+    container.appendChild(fragment);
+    renderPagination(totalPages);
+}
+
+function openModal(){ 
+    editingId = null; 
+    document.getElementById('modalTitle').textContent = '新增帳號';
+    document.getElementById('modalDelBtn').style.display = 'none';
+    const pwdInput = document.getElementById('accPassword');
+    pwdInput.type = "password"; pwdInput.placeholder = "請輸入密碼";
+    document.getElementById('eyeSvg').innerHTML = SVG_OPEN;
+    ['accUsername','accPassword','accEmail','accName','accNote'].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('accEnable').value = 'Y';
+    document.getElementById('modal').style.display = 'block'; 
+}
+
+function editAccount(i){
+    const acc = accounts[i];
+    editingId = acc.id;
+    document.getElementById('modalTitle').textContent = '編輯帳號';
+    document.getElementById('modalDelBtn').style.display = 'block';
+    const pwdInput = document.getElementById('accPassword');
+    pwdInput.placeholder = "若不修改請留空"; pwdInput.type = "password"; pwdInput.value = '';
+    document.getElementById('eyeSvg').innerHTML = SVG_OPEN;
+    document.getElementById('accUsername').value = acc.username;
+    document.getElementById('accEmail').value = acc.email || '';
+    document.getElementById('accName').value = acc.name;
+    document.getElementById('accGroup').value = acc.group_name || '';
+    document.getElementById('accNote').value = acc.note || '';
+    document.getElementById('accEnable').value = acc.enable;
+    document.getElementById('modal').style.display = 'block';
+}
+
+function handleConfirmSave() {
+    const username = document.getElementById('accUsername').value.trim();
+    const name = document.getElementById('accName').value.trim();
+    if(!username || !name) return alert('帳號與名稱為必填項目');
+    const title = editingId ? "修改帳號" : "新增帳號";
+    askConfirm(title, `確定要儲存帳號 [ ${username} ] 嗎？`, executeSave, false);
+}
+
+async function executeSave(){
+    const op = getOperatorInfo();
+    let currentSites = [];
+    if(editingId) {
+        const existingAcc = accounts.find(a => a.id === editingId);
+        currentSites = existingAcc ? existingAcc.sites : [];
+    }
+    const payload = {
+        id: editingId, username: document.getElementById('accUsername').value.trim(),
+        email: document.getElementById('accEmail').value.trim(),
+        password: document.getElementById('accPassword').value,
+        name: document.getElementById('accName').value.trim(),
+        group_name: document.getElementById('accGroup').value,
+        note: document.getElementById('accNote').value,
+        enable: document.getElementById('accEnable').value,
+        sites: currentSites, ...op
+    };
+    try {
+        const res = await fetch(`${API_BASE}/accounts`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if(res.ok) { closeModal(); loadAccounts(); }
+    } catch(e) { alert("連線失敗"); }
+}
+
+function handleModalDelete() {
+    if(!editingId) return;
+    const username = document.getElementById('accUsername').value;
+    askConfirm("⚠️ 確定刪除？", `您確定要刪除帳號 [ ${username} ] 嗎？此操作不可還原。`, executeDelete, true);
+}
+
+async function executeDelete() {
+    const op = getOperatorInfo();
+    try {
+        const res = await fetch(`${API_BASE}/accounts/delete`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: editingId, ...op })
+        });
+        if(res.ok) { closeModal(); loadAccounts(); }
+    } catch(e) { alert("刪除失敗"); }
+}
+
+function renderPagination(totalPages) {
+    const top = document.getElementById('topPagination');
+    const bottom = document.getElementById('bottomPagination');
+    top.innerHTML = ''; bottom.innerHTML = '';
+    const createSpan = (txt, isDis, isCur, page) => {
+        const s = document.createElement('span');
+        s.textContent = txt; s.className = (isDis ? 'disabled' : '') + (isCur ? ' current' : '');
+        if(!isDis && !isCur) s.onclick = () => { currentPage = page; render(); document.getElementById('listWrapper').scrollTop = 0; };
+        return s;
+    };
+    top.appendChild(createSpan('第一頁', currentPage === 1, false, 1));
+    for(let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+        top.appendChild(createSpan(i, false, i === currentPage, i));
+    }
+    top.appendChild(createSpan('最後一頁', currentPage === totalPages, false, totalPages));
+    bottom.appendChild(createSpan('上一頁', currentPage === 1, false, currentPage - 1));
+    for(let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+      bottom.appendChild(createSpan(i, false, i === currentPage, i));
+    }
+    bottom.appendChild(createSpan('下一頁', currentPage === totalPages, false, currentPage + 1));
+}
+
+function openSiteModal(i){ activeSiteIdx = i; const acc = accounts[i]; document.getElementById('siteAcc').value = acc.username; renderSiteList(); document.getElementById('siteModal').style.display = 'block'; }
+function closeSiteModal(){ document.getElementById('siteModal').style.display = 'none'; }
+function closeModal(){ document.getElementById('modal').style.display = 'none'; }
+function getOperatorInfo() { const userData = JSON.parse(sessionStorage.getItem('userData') || '{}'); return { operator_username: userData.username || 'System', operator_name: userData.name || 'Unknown' }; }
+
+function addSite(){
+    const val = document.getElementById('siteSelect').value;
+    if(!val) return;
+    const acc = accounts[activeSiteIdx];
+    if(!acc.sites) acc.sites = [];
+    if(val === "All") { acc.sites = ["All"]; } 
+    else { acc.sites = acc.sites.filter(s => s !== "All"); if(!acc.sites.includes(val)) acc.sites.push(val); }
+    renderSiteList();
+}
+function removeSite(name){ const acc = accounts[activeSiteIdx]; acc.sites = acc.sites.filter(s => s !== name); renderSiteList(); }
+function renderSiteList(){
+    const acc = accounts[activeSiteIdx];
+    const container = document.getElementById('siteList');
+    const sites = acc.sites || [];
+    container.innerHTML = sites.length === 0 ? '<div class="empty" style="padding:15px">尚無關聯案場</div>' : sites.map(s => `<div>${s}<span onclick="removeSite('${s}')">✕</span></div>`).join('');
+}
+async function saveSites(){
+    const acc = accounts[activeSiteIdx];
+    const op = getOperatorInfo();
+    const res = await fetch(`${API_BASE}/accounts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...acc, ...op }) });
+    if(res.ok) { closeSiteModal(); loadAccounts(); }
+}
+
+function togglePassword() {
+    const pwdInput = document.getElementById('accPassword');
+    const eyeSvg = document.getElementById('eyeSvg');
+    const isPwd = pwdInput.type === "password";
+    pwdInput.type = isPwd ? "text" : "password";
+    eyeSvg.innerHTML = isPwd ? SVG_CLOSE : SVG_OPEN;
+}
+
+async function fetchGroups() {
+    try {
+        const res = await fetch(`${API_BASE}/get_groups`);
+        const groups = await res.json();
+        document.getElementById('accGroup').innerHTML = '<option value="">請選擇群組</option>' + groups.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
+    } catch(e) {}
+}
+
+async function fetchSites() {
+    try {
+        const res = await fetch(`${API_BASE}/get_sites`);
+        const sites = await res.json();
+        document.getElementById('siteSelect').innerHTML = '<option value="">請選擇案場</option>' + '<option value="All" style="font-weight:bold; color:var(--primary-light);">All (全部案場)</option>' + sites.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+    } catch(e) {}
+}
+
+document.getElementById('listWrapper').addEventListener('scroll', (e) => { 
+    document.getElementById('topBtn').style.display = e.target.scrollTop > 120 ? 'flex' : 'none'; 
+});
+
+init();
+</script>
+</body>
+</html>

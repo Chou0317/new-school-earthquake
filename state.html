@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>管理紀錄</title>
+<style>
+:root{
+  --bg:#6c6c6c; --card:#ffffff; --primary:#002b88; --primary-light:#3b82f6; --danger:#ef4444;
+  --muted:#6b7280; --shadow:0 6px 18px rgba(15,23,42,0.08); --radius:12px;
+  font-family:-apple-system, BlinkMacSystemFont,'Segoe UI', Roboto,'Noto Sans TC','Microsoft JhengHei',sans-serif;
+}
+
+html,body{ height:100%; margin:0; background:var(--bg); }
+body{ padding:24px; display:flex; justify-content:center; }
+
+.card{ 
+    width:100%; max-width:1300px; 
+    background:var(--card); border-radius:0; 
+    box-shadow:var(--shadow); overflow:hidden; display:flex; flex-direction:column; height:95vh; 
+}
+
+.header{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px; background:var(--primary); color:white; }
+.title{ font-size:20px; font-weight:600; }
+
+.search-row { display:flex; align-items:center; gap:12px; padding:12px 20px; background:#f9fafb; border-radius:8px; margin:0 16px 12px 16px; flex-wrap:wrap; }
+.search-row .form-group{ display:flex; align-items:center; gap:6px; }
+.search-row label{ font-size:15px; font-weight:500; color:var(--muted); white-space:nowrap; line-height:32px; }
+.search-row input[type=date], .search-row select{ height:32px; padding:4px 8px; border-radius:6px; border:1px solid #ccc; font-size:14px; background:#fff; }
+.btn-search{ height:32px; padding:0 14px; border-radius:6px; background:var(--primary-light); color:#fff; border:none; cursor:pointer; font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:center; }
+
+#countText{ padding:8px 20px; color:var(--muted); display:flex; justify-content:space-between; align-items:center; }
+
+.list-wrapper{ flex:1; overflow-y:auto; position:relative; }
+
+.list{ width:100%; border-top:1px solid #eee; border-bottom:1px solid #eee; margin-top:0; }
+
+.list-head{ display:flex; gap:12px; padding:10px 8px; align-items:center; color:var(--muted); font-weight:700; background:#f9fafb; position:sticky; top:0; z-index:2; }
+
+.list-row{ display:flex; align-items:center; gap:12px; padding:12px 8px; border-bottom:1px solid #f2f2f2; }
+
+.col-1{ width:60px; flex-shrink:0; text-align:center; color:var(--muted); }
+.col-2,.col-3,.col-4,.col-5,.col-6,.col-7{ flex:1; min-width:140px; }
+.col-3{ flex:1.2; } /* 名稱欄位加寬 */
+.col-6{ flex:1.2; } /* 異常狀態加寬 */
+.col-7{ flex:1.2; } /* 異動時間加寬 */
+
+.empty { text-align:center; color:#6b7280; padding:20px 0; font-weight:500; }
+
+/* 分頁文字樣式 */
+.pagination{ display:flex; gap:4px; flex-wrap:wrap; }
+.pagination span{
+  cursor:pointer;
+  padding:3px 5px;
+  color:var(--primary);
+  font-weight:600;
+  font-size:12px;
+}
+.pagination span.current{
+  font-weight:700;
+  text-decoration:underline;
+  cursor:default;
+  color:#111;
+}
+.pagination span.disabled{
+  color:#999;
+  cursor:default;
+}
+.pagination-container{ display:flex; justify-content:center; padding:8px 0; }
+
+#topBtn{ position:fixed; right:20px; bottom:20px; width:44px; height:44px; background:var(--primary-light); color:white; border:none; border-radius:8px; display:none; align-items:center; justify-content:center; cursor:pointer; z-index:200; }
+#topBtn:hover{ background:#0056b3; }
+
+@media (max-width:720px){
+  .list-head{ font-size:13px; }
+  .col-2,.col-3,.col-4,.col-5,.col-6,.col-7{ min-width:80px; }
+  .search-row{ gap:8px; }
+}
+</style>
+</head>
+<body>
+
+<div class="card" id="mainCard">
+  <div class="header"><div class="title">管理紀錄</div></div>
+
+  <!-- 搜尋 -->
+  <div class="search-row">
+    <div class="form-group">
+      <label for="citySelect">縣市</label>
+      <select id="citySelect"></select>
+    </div>
+    <div class="form-group">
+      <label for="townSelect">鄉鎮</label>
+      <select id="townSelect"><option value="-">全部</option></select>
+    </div>
+    <div class="form-group">
+      <label for="startDate">開始日期</label>
+      <input type="date" id="startDate">
+    </div>
+    <div class="form-group">
+      <label for="endDate">結束日期</label>
+      <input type="date" id="endDate">
+    </div>
+    <div class="form-group">
+      <label for="pageSizeSelect">每頁筆數</label>
+      <select id="pageSizeSelect">
+        <option value="25" selected>25</option>
+        <option value="50">50</option>
+        <option value="75">75</option>
+        <option value="100">100</option>
+      </select>
+    </div>
+    <button class="btn-search" onclick="searchRecords()">搜尋</button>
+  </div>
+
+  <div id="countText">
+    <span>共 0 筆資料</span>
+    <span class="pagination" id="topPagination"></span>
+  </div>
+
+  <div class="list-wrapper">
+    <div class="list">
+      <div class="list-head">
+        <div class="col-1">序號</div>
+        <div class="col-2">ID</div>
+        <div class="col-4">縣市</div>
+        <div class="col-5">鄉鎮</div>
+        <div class="col-3">案場名稱</div>
+        <div class="col-6">異常狀態</div>
+        <div class="col-7">異動時間</div>
+      </div>
+      <div id="rowsContainer"><div class="empty">載入中...</div></div>
+    </div>
+  </div>
+
+  <div class="pagination-container">
+    <span class="pagination" id="bottomPagination"></span>
+  </div>
+</div>
+
+<button id="topBtn" onclick="scrollToTop()">TOP</button>
+
+<script>
+// 縣市鄉鎮對照
+const cityTownMap = {
+  "臺北市":["中正區","大同區","中山區","松山區","大安區","萬華區","信義區","士林區","北投區","內湖區","南港區","文山區"],
+  "新北市":["板橋區","新店區","中和區","永和區","新莊區","淡水區","樹林區","蘆洲區"],
+  "高雄市":["左營區","苓雅區","鼓山區","三民區","前鎮區","楠梓區"]
+};
+
+// 下拉選單初始化
+const citySelect = document.getElementById('citySelect');
+const townSelect = document.getElementById('townSelect');
+const pageSizeSelect = document.getElementById('pageSizeSelect');
+const topPagination = document.getElementById('topPagination');
+const bottomPagination = document.getElementById('bottomPagination');
+
+function populateCityOptions(){
+  citySelect.innerHTML='<option value="-">-</option>';
+  for(const c of Object.keys(cityTownMap)){
+    const opt=document.createElement('option'); opt.value=c; opt.textContent=c;
+    citySelect.appendChild(opt);
+  }
+}
+function populateTownOptions(city){
+  townSelect.innerHTML='<option value="-">-</option>';
+  if(cityTownMap[city]){
+    for(const t of cityTownMap[city]){
+      const opt=document.createElement('option'); opt.value=t; opt.textContent=t;
+      townSelect.appendChild(opt);
+    }
+  }
+}
+citySelect.addEventListener('change',()=>populateTownOptions(citySelect.value));
+
+// 假資料
+let logs = Array.from({length:200}, (_,i)=>(({
+  id:'DEV'+String(i+1).padStart(3,'0'),
+  name:'設備'+String(i+1),
+  city:['台北市','新北市','高雄市'][i%3],
+  town:cityTownMap[['台北市','新北市','高雄市'][i%3]][i%5],
+  status:'感測值異常',
+  datetime:`2025-12-${String((i%28)+1).padStart(2,'0')} 10:${String(i%60).padStart(2,'0')}`
+})));
+logs.sort((a,b)=>new Date(b.datetime)-new Date(a.datetime));
+
+const rowsContainer=document.getElementById('rowsContainer');
+const countText=document.getElementById('countText');
+let pageSize = parseInt(pageSizeSelect.value);
+let currentPage=1;
+let filteredLogs = logs.slice();
+
+// 通用分頁生成函數
+function renderPagination(current,total,maxShow=5,mode='top'){ 
+  const pages = [];
+  if(total<=maxShow){
+    for(let i=1;i<=total;i++) pages.push(i);
+  } else {
+    if(current<=3){
+      pages.push(1,2,3,'...',total);
+    } else if(current>=total-2){
+      pages.push(1,'...',total-2,total-1,total);
+    } else {
+      pages.push(1,'...',current,'...',total);
+    }
+  }
+
+  const container = (mode==='top')?topPagination:bottomPagination;
+  container.innerHTML='';
+
+  if(mode==='top'){
+    const first = document.createElement('span'); first.textContent='第一頁';
+    first.className = (current===1)?'disabled':'';
+    first.onclick = ()=>{ if(current>1){ currentPage=1; render(filteredLogs); }};
+    container.appendChild(first);
+  }
+
+  pages.forEach(p=>{
+    const span = document.createElement('span');
+    if(p==='...'){ span.textContent='…'; span.className='disabled'; }
+    else{
+      span.textContent=p;
+      if(p===current) span.className='current';
+      else span.onclick=()=>{ currentPage=p; render(filteredLogs); };
+    }
+    container.appendChild(span);
+  });
+
+  if(mode==='top'){
+    const last = document.createElement('span'); last.textContent='最後一頁';
+    last.className = (current===total)?'disabled':'';
+    last.onclick = ()=>{ if(current<total){ currentPage=total; render(filteredLogs); }};
+    container.appendChild(last);
+  }
+
+  if(mode==='bottom'){
+    const prev = document.createElement('span'); prev.textContent='上一頁';
+    prev.className = (current===1)?'disabled':'';
+    prev.onclick = ()=>{ if(current>1){ currentPage--; render(filteredLogs); }};
+    const next = document.createElement('span'); next.textContent='下一頁';
+    next.className = (current===total)?'disabled':'';
+    next.onclick = ()=>{ if(current<total){ currentPage++; render(filteredLogs); }};
+    container.prepend(prev);
+    container.appendChild(next);
+  }
+}
+
+// 渲染列表
+function render(list){
+  pageSize = parseInt(pageSizeSelect.value);
+  const totalPages = Math.ceil(list.length/pageSize);
+  if(currentPage>totalPages) currentPage=totalPages||1;
+  const start=(currentPage-1)*pageSize;
+  const pageData=list.slice(start,start+pageSize);
+
+  rowsContainer.innerHTML='';
+  if(pageData.length===0){
+    rowsContainer.innerHTML='<div class="empty">查無資料</div>';
+  } else {
+    pageData.forEach((e,idx)=>{
+      const row=document.createElement('div'); row.className='list-row';
+      row.innerHTML=`
+        <div class="col-1">${start+idx+1}</div>
+        <div class="col-2">${e.id}</div>
+        <div class="col-4">${e.city}</div>
+        <div class="col-5">${e.town}</div>
+        <div class="col-3">${e.name}</div>
+        <div class="col-6">${e.status}</div>
+        <div class="col-7">${e.datetime}</div>
+      `;
+      rowsContainer.appendChild(row);
+    });
+  }
+
+  countText.querySelector('span').textContent=`共 ${list.length} 筆資料`;
+
+  // 右上角
+  renderPagination(currentPage,totalPages,5,'top');
+  // 底部分頁
+  renderPagination(currentPage,totalPages,5,'bottom');
+}
+
+// 搜尋
+function searchRecords(){
+  const s = document.getElementById('startDate').value;
+  const e = document.getElementById('endDate').value;
+  const city = citySelect.value;
+  const town = townSelect.value;
+
+  filteredLogs = logs.slice()
+    .filter(r=>city==='-' || r.city===city)
+    .filter(r=>town==='-' || r.town===town)
+    .filter(r=>!s || r.datetime.slice(0,10)>=s)
+    .filter(r=>!e || r.datetime.slice(0,10)<=e);
+
+  currentPage=1;
+  render(filteredLogs);
+}
+
+// Top 按鈕
+const topBtn=document.getElementById('topBtn');
+window.addEventListener('scroll',()=>{topBtn.style.display=(window.scrollY>120)?'flex':'none';});
+function scrollToTop(){window.scrollTo({top:0,behavior:'smooth'});}
+
+// 每頁筆數改變
+pageSizeSelect.addEventListener('change',()=>{ currentPage=1; render(filteredLogs); });
+
+// 初始化
+populateCityOptions();
+populateTownOptions('-');
+render(filteredLogs);
+</script>
+</body>
+</html>

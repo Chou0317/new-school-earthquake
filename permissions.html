@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>群組管理</title>
+    <style>
+        :root{
+            --bg:#6c6c6c; --card:#ffffff; --primary:#002b88; --primary-light:#3b82f6;
+            --danger:#ef4444; --muted:#6b7280; --shadow:0 6px 18px rgba(15,23,42,0.08); --radius:12px;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans TC','Microsoft JhengHei',sans-serif;
+        }
+        html,body{height:100%;margin:0;background:var(--bg);}
+        body{padding:24px;display:flex;justify-content:center;}
+        .card{width:100%;max-width:1300px;background:var(--card);border-radius:0;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;height:95vh;}
+        .header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:var(--primary);color:#fff;}
+        .title{font-size:20px;font-weight:600;}
+        #countText{padding:12px 20px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;font-size:14px;background:#f9fafb;border-bottom:1px solid #eee;}
+        .pagination{ display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+        .pagination span{ cursor:pointer; padding:3px 8px; color:var(--primary); font-weight:600; font-size:13px; border-radius:4px; }
+        .pagination span.current{ font-weight:700; text-decoration:underline; cursor:default; color:#111; }
+        .pagination span.disabled{ color:#999; cursor:default; } /* 保留原本的 disabled 樣式 */
+        .pagination-container{ display:flex; justify-content:center; padding:15px 0; background:#fff; border-top:1px solid #eee; }
+        .list-wrapper{ flex:1; overflow-y:auto; }
+        .list{ width:100%; }
+        .list-head{ display:flex; align-items:center; gap:12px; padding:10px 8px; background:#f9fafb; font-weight:700; color:var(--muted); position:sticky; top:0; z-index:2; border-bottom:1px solid #eee; }
+        .list-row{ display:flex; align-items:center; gap:12px; padding:12px 8px; border-bottom:1px solid #f2f2f2; }
+        .col-1{width:60px; text-align:center; color:var(--muted);}
+        
+        /* 1. 群組名稱與說明往右移一點 */
+        .col-2{flex:1; min-width:160px; padding-left: 20px;}
+        .col-3{flex:2; min-width:220px; padding-left: 20px;}
+        .col-4{width:100px; text-align:center;}
+        
+        .btn{border:0;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;}
+        .btn-primary{background:var(--primary-light);color:#fff;}
+        /* 警示用紅色背景 */
+        .btn-danger{background:var(--danger) !important; color:#fff !important;}
+        .btn-danger-modal{background:var(--danger); color:#fff; margin-right: auto;}
+        .btn-close{ background:#fff; border:1px solid #ccc; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:600;}
+        
+        /* 2. 編輯按鈕文字改為黑色 */
+        .icon-btn{padding:6px 12px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#fff;cursor:pointer;font-weight:600;color:#000;}
+        .icon-btn:hover{background:#f3f4f6;}
+        
+        .permission-table{width:100%;border-collapse:collapse;margin-top:10px;}
+        .permission-table th,.permission-table td{border:1px solid #ddd;padding:8px;text-align:center;}
+        .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,.45);display:flex;align-items:center;justify-content:center;z-index:100;}
+        .modal{background:#fff;border-radius:var(--radius);max-width:760px;width:94%;max-height:90vh;display:flex;flex-direction:column;}
+        .modal-body{padding:18px;overflow-y:auto;}
+        .modal-header{padding:16px 20px;background:var(--primary);color:#fff;font-size:18px;font-weight:600;}
+        .modal-footer{padding:12px 18px;background:#f9fafb;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #eee;}
+        
+        /* 確認對話框樣式 */
+        #confirmLayer { z-index: 500; background: rgba(0,0,0,0.7); display:none; position:fixed; inset:0; align-items:center; justify-content:center; }
+        .confirm-card { width: 350px; padding: 24px; background: #fff; border-radius: 12px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .confirm-btns { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="header">
+        <div class="title">群組管理</div>
+        <button class="btn btn-primary" onclick="openModal()">＋ 新增群組</button>
+    </div>
+    <div id="countText">
+        <span>共 0 筆資料</span>
+        <span id="topPagination" class="pagination"></span>
+    </div>
+    <div class="list-wrapper" id="listWrapper">
+        <div class="list">
+            <div class="list-head">
+                <div class="col-1">序號</div>
+                <div class="col-2">群組名稱</div>
+                <div class="col-3">群組說明</div>
+                <div class="col-4">操作</div>
+            </div>
+            <div id="rowsContainer"></div>
+        </div>
+    </div>
+    <div id="bottomPagination" class="pagination-container pagination"></div>
+</div>
+
+<div id="modal" style="display:none">
+    <div class="modal-backdrop" onclick="closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header" id="modalTitle">新增群組</div>
+            <div class="modal-body">
+                <div class="form-row" style="display:flex; gap:10px; margin-bottom:12px; align-items:center;">
+                    <label style="width:90px; color:var(--muted);">群組名稱</label>
+                    <input id="permName" type="text" style="flex:1; padding:6px 8px; border:1px solid #ccc; border-radius:6px;" />
+                </div>
+                <div class="form-row" style="display:flex; gap:10px; margin-bottom:12px; align-items:center;">
+                    <label style="width:90px; color:var(--muted);">群組說明</label>
+                    <input id="permDesc" type="text" style="flex:1; padding:6px 8px; border:1px solid #ccc; border-radius:6px;" />
+                </div>
+                <div style="margin-top:16px;font-weight:500;color:var(--muted)">功能權限設定</div>
+                <table class="permission-table" id="permTable">
+                    <thead>
+                        <tr>
+                            <th>功能項目</th>
+                            <th style="width:100px">開啟</th>
+                            <th style="width:100px">關閉</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger-modal" id="btnDeleteInModal" style="display:none;" onclick="handleDeleteFromModal()">刪除</button>
+                <button class="btn-close" onclick="closeModal()">取消</button>
+                <button class="btn btn-primary" id="confirmBtn" onclick="handleConfirmSave()">確認</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="confirmLayer">
+    <div class="confirm-card">
+        <h3 id="confirmTitle" style="margin-top:0">確認動作</h3>
+        <p id="confirmDesc" style="color:#666; font-size:14px; line-height:1.5;"></p>
+        <div class="confirm-btns">
+            <button class="btn-close" onclick="hideConfirm()">取消</button>
+            <button id="confirmExecuteBtn" class="btn btn-primary">確定</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = 'http://127.0.0.1:5001/api/permissions';
+    let permissions = [];
+    let editingId = null;
+    let currentPage = 1;
+    const pageSize = 10;
+
+    const features = [
+        { name: "地震事件", children:["地震事件紀錄","DIO 發報紀錄"] },
+        { name: "EWS 主機管理", children:["EWS 主機設定","EWS 主機群組管理","氣象署連線設定","地震發報設定"] },
+        { name: "狀態管理", children:["連線狀態","管理紀錄"] },
+        { name: "模擬演練", children:["地震模擬","地震模擬（群組）","地震模擬排程"] },
+        { name: "文件下載", children:["文件下載"] },
+        { name: "後台設定", children:["後台群組管理","帳號管理","後台紀錄","變更密碼","登出"] }
+    ];
+
+    async function loadData() {
+        try {
+            const res = await fetch(API_URL);
+            permissions = await res.json();
+            render();
+        } catch (e) {
+            document.getElementById('rowsContainer').innerHTML = '<div class="empty">API 連線失敗</div>';
+        }
+    }
+
+    // 3. 通用確認視窗 (增加刪除警示紅色背景邏輯)
+    function askConfirm(title, desc, callback, isDanger = false) {
+        document.getElementById('confirmTitle').textContent = title;
+        document.getElementById('confirmDesc').textContent = desc;
+        document.getElementById('confirmLayer').style.display = 'flex';
+        const btn = document.getElementById('confirmExecuteBtn');
+        
+        if (isDanger) {
+            btn.classList.add('btn-danger');
+        } else {
+            btn.classList.remove('btn-danger');
+        }
+        
+        btn.onclick = () => { hideConfirm(); callback(); };
+    }
+    function hideConfirm() { document.getElementById('confirmLayer').style.display = 'none'; }
+
+    function render(){
+        const container = document.getElementById('rowsContainer');
+        const totalCount = permissions.length;
+        document.querySelector('#countText span').textContent = `共 ${totalCount} 筆資料`;
+        const totalPages = Math.ceil(totalCount / pageSize) || 1;
+        container.innerHTML = '';
+        const start = (currentPage - 1) * pageSize;
+        const pageData = permissions.slice(start, start + pageSize);
+        
+        pageData.forEach((p, i) => {
+            const row = document.createElement('div');
+            row.className = 'list-row';
+            row.innerHTML = `
+                <div class="col-1">${start + i + 1}</div>
+                <div class="col-2">${p.name}</div>
+                <div class="col-3">${p.desc || ''}</div>
+                <div class="col-4"><button class="icon-btn" onclick="editPerm(${start + i})">編輯</button></div>
+            `;
+            container.appendChild(row);
+        });
+        renderPagination(totalPages);
+    }
+
+    // 完整保留原有分頁樣式與邏輯
+    function renderPagination(totalPages) {
+        const top = document.getElementById('topPagination');
+        const bottom = document.getElementById('bottomPagination');
+        top.innerHTML = ''; bottom.innerHTML = '';
+        
+        const createSpan = (txt, isDis, isCur, page) => {
+            const s = document.createElement('span');
+            s.textContent = txt;
+            s.className = (isDis ? 'disabled' : '') + (isCur ? ' current' : '');
+            if(!isDis && !isCur) s.onclick = () => { 
+                currentPage = page; 
+                render(); 
+                document.getElementById('listWrapper').scrollTop = 0;
+            };
+            return s;
+        };
+
+        // 上方頁碼
+        top.appendChild(createSpan('第一頁', currentPage === 1, false, 1));
+        for(let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+            top.appendChild(createSpan(i, false, i === currentPage, i));
+        }
+        top.appendChild(createSpan('最後一頁', currentPage === totalPages, false, totalPages));
+
+        // 下方頁碼
+        bottom.appendChild(createSpan('上一頁', currentPage === 1, false, currentPage - 1));
+        for(let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+            bottom.appendChild(createSpan(i, false, i === currentPage, i));
+        }
+        bottom.appendChild(createSpan('下一頁', currentPage === totalPages, false, currentPage + 1));
+    }
+
+    function generatePermTable(selected = {}){
+        const tbody = document.querySelector("#permTable tbody");
+        tbody.innerHTML = "";
+        features.forEach((f, fi) => {
+            const trP = document.createElement("tr");
+            trP.style.background = "#f1f5f9";
+            trP.innerHTML = `<td style="text-align:left; padding-left:10px; font-weight:700; color:var(--primary);" colspan="3">${f.name}</td>`;
+            tbody.appendChild(trP);
+            f.children.forEach((c, ci) => {
+                const idx = `${fi}_${ci}`;
+                const val = selected[idx] || "off"; 
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td style="text-align:left; padding-left:25px;">${c}</td>
+                    <td><input type="radio" name="p_${idx}" value="on" ${val === 'on' ? 'checked' : ''}></td>
+                    <td><input type="radio" name="p_${idx}" value="off" ${val === 'off' ? 'checked' : ''}></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        });
+    }
+
+    function openModal(){
+        editingId = null;
+        document.getElementById('modalTitle').textContent = '新增群組';
+        document.getElementById('permName').value = '';
+        document.getElementById('permDesc').value = '';
+        document.getElementById('btnDeleteInModal').style.display = 'none';
+        generatePermTable();
+        document.getElementById('modal').style.display = 'block';
+    }
+
+    function editPerm(i){
+        const p = permissions[i]; editingId = p.id;
+        document.getElementById('modalTitle').textContent = '編輯群組';
+        document.getElementById('permName').value = p.name;
+        document.getElementById('permDesc').value = p.desc || '';
+        document.getElementById('btnDeleteInModal').style.display = 'block';
+        generatePermTable(p.perms);
+        document.getElementById('modal').style.display = 'block';
+    }
+
+    function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+    function handleConfirmSave() {
+        const name = document.getElementById('permName').value.trim();
+        if(!name) return alert('請輸入群組名稱');
+        askConfirm("儲存設定", `確定要儲存群組 [ ${name} ] 嗎？`, executeSave, false);
+    }
+
+    async function executeSave(){
+        const perms = {};
+        features.forEach((f, fi) => {
+            f.children.forEach((c, ci) => {
+                const idx = `${fi}_${ci}`;
+                const checked = document.querySelector(`input[name="p_${idx}"]:checked`);
+                perms[idx] = checked ? checked.value : "off";
+            });
+        });
+        const payload = { 
+            id: editingId, 
+            name: document.getElementById('permName').value.trim(), 
+            desc: document.getElementById('permDesc').value.trim(), 
+            perms 
+        };
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if(res.ok) { closeModal(); loadData(); }
+        } catch (e) { alert("連線錯誤"); }
+    }
+
+    function handleDeleteFromModal() {
+        const name = document.getElementById('permName').value;
+        // 這裡傳入 true，確定按鈕會變紅
+        askConfirm("⚠️ 確定刪除？", `您確定要刪除群組 [ ${name} ] 嗎？此操作不可還原。`, executeDelete, true);
+    }
+
+    async function executeDelete() {
+        try {
+            const res = await fetch(`${API_URL}/delete`, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: editingId })
+            });
+            if(res.ok) { closeModal(); loadData(); }
+        } catch (e) { alert("刪除失敗"); }
+    }
+
+    loadData();
+</script>
+</body>
+</html>

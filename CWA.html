@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>氣象署連線設定</title>
+<style>
+/* --- 完全保留原始 CSS 變數與樣式 --- */
+:root{
+  --bg:#6c6c6c;
+  --card:#ffffff;
+  --primary:#002b88;
+  --primary-light:#3b82f6;
+  --danger:#ef4444;
+  --muted:#6b7280;
+  --shadow:0 6px 18px rgba(15,23,42,0.08);
+  --radius:12px;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans TC','Microsoft JhengHei',sans-serif;
+}
+html,body{height:100%;margin:0;background:var(--bg);}
+body{padding:24px;display:flex;justify-content:center;}
+
+.card{ width:100%; max-width:1300px; background:var(--card); border-radius:0; box-shadow:var(--shadow); overflow:hidden; display:flex; flex-direction:column; height:95vh;}
+.header{ padding:16px 20px; background:var(--primary); color:#fff; font-size:20px; font-weight:600; }
+.search-row{ display:flex; flex-wrap:wrap; gap:12px; padding:12px 20px; background:#f9fafb; align-items:center; }
+.form-group{ display:flex; align-items:center; gap:6px; }
+label{ color:var(--muted); white-space:nowrap; }
+select,input{ height:32px; padding:4px 8px; border-radius:6px; border:1px solid #ccc; font-size:14px; }
+.btn-search{ height:32px; padding:0 14px; border:none; border-radius:6px; background:var(--primary-light); color:#fff; cursor:pointer; font-weight:600; display:flex; align-items:center; justify-content:center; }
+#pageSizeSelect{height:32px;padding:4px 8px;border-radius:6px;border:1px solid #ccc;font-size:14px;}
+
+.top-info{ display:flex; justify-content:space-between; align-items:center; padding:8px 20px; color:var(--muted); font-size:14px; }
+
+/* 🔴 頁碼樣式：同步主機設定 (細體、藍色文字、底線效果) */
+.pagination{ display:flex; gap:4px; flex-wrap:wrap; }
+.pagination span{ cursor:pointer; padding:3px 5px; color:var(--primary); font-weight:600; font-size:12px; }
+.pagination span.current{ font-weight:700; text-decoration:underline; cursor:default; color:#111; }
+.pagination span.disabled{ color:#999; cursor:default; }
+
+.list{ border-top:1px solid #eee; overflow:auto; flex:1; }
+.list-head,.list-row{ display:flex; align-items:center; padding:10px 8px; min-width:1000px; }
+.list-head{ background:#f9fafb; color:var(--muted); font-weight:700; position:sticky; top:0; z-index:2; }
+.list-row{ border-bottom:1px solid #f2f2f2; }
+
+.col-1{ flex:0 0 60px; max-width:60px; display:flex; align-items:center; justify-content:flex-start; padding-left:16px; box-sizing:border-box; }
+.col-2,.col-3,.col-4,.col-5{ flex:1; display:flex; align-items:center; justify-content:center; min-width:120px; }
+.col-6{ flex:0 0 100px; display:flex; align-items:center; justify-content:flex-end; padding-right:20px; box-sizing:border-box; }
+.icon-btn{ padding:6px 8px; border-radius:8px; border:1px solid rgba(0,0,0,0.06); background:transparent; cursor:pointer; font-weight:600; }
+.empty{ padding:28px; text-align:center; color:var(--muted); width:100%; }
+
+.modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.45); display:none; align-items:center; justify-content:center; z-index:100; }
+.modal{ background:#fff; width:92%; max-width:520px; border-radius:12px; overflow:hidden; }
+.modal-header{ background:var(--primary); color:#fff; padding:14px 18px; font-weight:600; }
+.modal-body{padding:18px;}
+.modal-body .form-group{margin-bottom:12px;}
+.modal-footer{ padding:12px 18px; display:flex; justify-content:flex-end; gap:8px; background:#f9fafb; }
+.btn{ padding:6px 14px; border-radius:6px; border:none; cursor:pointer; font-weight:600; }
+.btn-primary{background:var(--primary-light);color:#fff;}
+.btn-close{ padding:8px 12px; border-radius:8px; border:1px solid #ccc; background:#ffffff; color:#374151; font-weight:600; font-size:14px; cursor:pointer; }
+
+#confirmLayer { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:none; align-items:center; justify-content:center; z-index:500; }
+.confirm-card { width: 380px; padding: 24px; background: #fff; border-radius: 12px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+.confirm-title { font-size: 18px; font-weight: 700; margin-bottom: 12px; color: #1f2937; }
+.confirm-desc { font-size: 14px; color: #6b7280; margin-bottom: 24px; line-height: 1.5; }
+.confirm-btns { display: flex; gap: 12px; justify-content: center; }
+
+#topBtn{ position:fixed; right:20px; bottom:20px; width:44px; height:44px; border:none; border-radius:8px; background:var(--primary-light); color:#fff; display:none; cursor:pointer; }
+.pagination-container{ display:flex; justify-content:center; padding:8px 0; background:#fff; border-top:1px solid #eee; }
+</style>
+</head>
+
+<body>
+<div class="card">
+  <div class="header">氣象署連線設定</div>
+
+  <div class="search-row">
+    <div class="form-group"><label>縣市</label><select id="citySelect"></select></div>
+    <div class="form-group"><label>鄉鎮</label><select id="townSelect"></select></div>
+    <div class="form-group"><label>ID</label><input id="idInput" placeholder="輸入ID"/></div>
+    <div class="form-group"><label>案場名稱</label><input id="nameInput" placeholder="輸入案場名稱"/></div>
+    <div class="form-group">
+      <label>每頁筆數</label>
+      <select id="pageSizeSelect" onchange="changePageSize()">
+        <option value="25" selected>25</option><option value="50">50</option>
+        <option value="75">75</option><option value="100">100</option>
+      </select>
+    </div>
+    <button class="btn-search" onclick="search()">搜尋</button>
+  </div>
+
+  <div class="top-info">
+    <span id="countText">共 0 筆資料</span>
+    <div class="pagination" id="topPagination"></div>
+  </div>
+
+  <div class="list" id="listWrapper">
+    <div class="list-head">
+      <div class="col-1">序號</div>
+      <div class="col-2">ID</div>
+      <div class="col-3">案場名稱</div>
+      <div class="col-4">縣市</div>
+      <div class="col-5">鄉鎮</div>
+      <div class="col-6">操作</div>
+    </div>
+    <div id="rows"></div>
+  </div>
+
+  <div class="pagination-container">
+    <div class="pagination" id="bottomPagination"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <div class="modal-header">氣象署連線設定</div>
+    <div class="modal-body">
+      <div class="form-group"><label>ID</label><input id="mId" disabled style="width:100%; background:#f3f4f6;"></div>
+      <div class="form-group"><label>案場名稱</label><input id="mName" disabled style="width:100%; background:#f3f4f6;"></div>
+      <div class="form-group"><label>氣象署帳號</label><input id="mAccount" style="width:100%;"></div>
+      <div class="form-group">
+          <label>氣象署密碼</label>
+          <input type="text" id="mPwd" style="width:100%;" placeholder="輸入連線密碼" onfocus="if(this.value==='********') this.value='';">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-close" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="handleConfirmSave()">確認</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirmLayer">
+    <div class="confirm-card">
+        <div class="confirm-title" id="confirmTitle">確認動作</div>
+        <div class="confirm-desc" id="confirmDesc">你確定要執行這項操作嗎？</div>
+        <div class="confirm-btns">
+            <button class="btn-close" onclick="hideConfirm()">取消</button>
+            <button id="confirmExecuteBtn" class="btn btn-primary">確定</button>
+        </div>
+    </div>
+</div>
+
+<button id="topBtn" onclick="scrollToTop()">TOP</button>
+
+<script>
+let allData = []; 
+let filteredData = []; 
+let currentPage = 1;
+let pageSize = 25;
+const API_URL = 'http://127.0.0.1:5000/api'; 
+    
+const taiwanDistricts = { "臺北市": ["中正區", "大同區", "中山區", "萬華區", "信義區", "松山區", "大安區", "南港區", "北投區", "內湖區", "士林區", "文山區"], "新北市": ["板橋區", "新莊區", "中和區", "永和區", "土城區", "樹林區", "三峽區", "鶯歌區", "三重區", "蘆洲區", "五股區", "泰山區", "林口區", "八里區", "淡水區", "三芝區", "石門區", "金山區", "萬里區", "汐止區", "瑞芳區", "貢寮區", "平溪區", "雙溪區", "新店區", "深坑區", "石碇區", "坪林區", "烏來區"], "桃園市": ["桃園區", "中壢區", "平鎮區", "八德區", "楊梅區", "蘆竹區", "龜山區", "龍潭區", "大溪區", "大園區", "觀音區", "新屋區", "復興區"], "臺中市": ["中區", "東區", "南區", "西區", "北區", "北屯區", "西屯區", "南屯區", "太平區", "大里區", "霧峰區", "烏日區", "豐原區", "後里區", "石岡區", "東勢區", "和平區", "新社區", "潭子區", "大雅區", "神岡區", "大肚區", "沙鹿區", "龍井區", "梧棲區", "清水區", "大甲區", "外埔區", "大安區"], "臺南市": ["中西區", "東區", "南區", "北區", "安平區", "安南區", "後壁區", "白河區", "新營區", "鹽水區", "義竹鄉", "東山區", "麻豆區", "下營區", "六甲區", "官田區", "大內區", "佳里區", "學甲區", "北門區", "將軍區", "七股區", "西港區", "善化區", "新市區", "安定區", "山上區", "玉井區", "楠西區", "南化區", "左鎮區", "仁德區", "歸仁區", "關廟區", "龍崎區", "永康區"], "高雄市": ["楠梓區", "左營區", "鼓山區", "三民區", "鹽埕區", "前金區", "新興區", "苓雅區", "前鎮區", "旗津區", "小港區", "鳳山區", "大寮區", "鳥松區", "林園區", "仁武區", "大樹區", "大社區", "岡山區", "路竹區", "阿蓮區", "田寮區", "燕巢區", "橋頭區", "梓官區", "彌陀區", "永安區", "湖內區", "旗山區", "美濃區", "六龜區", "內門區", "杉林區", "甲仙區", "桃源區", "那瑪夏區", "茂林區", "茄萣區"], "基隆市": ["仁愛區", "信義區", "中正區", "中山區", "安樂區", "暖暖區", "七堵區"], "新竹市": ["東區", "北區", "香山區"], "嘉義市": ["東區", "西區"], "新竹縣": ["竹北市", "竹東鎮", "新埔鎮", "關西鎮", "湖口鄉", "新豐鄉", "峨眉鄉", "寶山鄉", "北埔鄉", "橫山鄉", "芎林鄉", "五峰鄉", "尖石鄉"], "苗栗縣": ["苗栗市", "頭份市", "竹南鎮", "後龍鎮", "通霄鎮", "苑裡鎮", "卓蘭鎮", "造橋鄉", "西湖鄉", "頭屋鄉", "公館鄉", "銅鑼鄉", "三義鄉", "大湖鄉", "獅潭鄉", "三灣鄉", "南庄鄉", "泰安鄉"], "彰化縣": ["彰化市", "員林市", "和美鎮", "鹿港鎮", "溪湖鎮", "二林鎮", "田中鎮", "北斗鎮", "花壇鄉", "芬園鄉", "大村鄉", "永靖鄉", "伸港鄉", "線西鄉", "福興鄉", "秀水鄉", "埔心鄉", "埔鹽鄉", "大城鄉", "芳苑鄉", "竹塘鄉", "溪州鄉", "埤頭鄉", "二水鄉", "社頭鄉", "田尾鄉"], "南投縣": ["南投市", "埔里鎮", "草屯鎮", "竹山鎮", "集集鎮", "名間鄉", "鹿谷鄉", "中寮鄉", "魚池鄉", "國姓鄉", "水里鄉", "信義鄉", "仁愛鄉"], "雲林縣": ["斗六市", "斗南鎮", "虎尾鎮", "西螺鎮", "土庫鎮", "北港鎮", "古坑鄉", "大埤鄉", "莿桐鄉", "林內鄉", "二崙鄉", "崙背鄉", "麥寮鄉", "東勢鄉", "褒忠鄉", "臺西鄉", "元長鄉", "四湖鄉", "口湖鄉", "水林鄉"], "嘉義縣": ["太保市", "朴子市", "布袋鎮", "大林鎮", "民雄鄉", "溪口鄉", "新港鄉", "六腳鄉", "東石鄉", "義竹鄉", "鹿草鄉", "水上鄉", "中埔鄉", "竹崎鄉", "梅山鄉", "番路鄉", "大埔鄉", "阿里山鄉"], "屏東縣": ["屏東市", "潮州鎮", "東港鎮", "恆春鎮", "萬丹鄉", "長治鄉", "麟洛鄉", "九如鄉", "里港鄉", "高樹鄉", "鹽埔鄉", "內埔鄉", "竹田鄉", "萬巒鄉", "內埔鄉", "新埤鄉", "枋寮鄉", "新園鄉", "崁頂鄉", "林邊鄉", "南州鄉", "佳冬鄉", "琉球鄉", "車城鄉", "滿州鄉", "枋山鄉", "三地門鄉", "霧臺鄉", "瑪家鄉", "泰武鄉", "來義鄉", "春日鄉", "獅子鄉", "牡丹鄉"], "宜蘭縣": ["宜蘭市", "羅東鎮", "蘇澳鎮", "頭城鎮", "礁溪鄉", "壯圍鄉", "員山鄉", "冬山鄉", "五結鄉", "三星鄉", "大同鄉", "南澳鄉"], "花蓮縣": ["花蓮市", "鳳林鎮", "玉里鎮", "新城鄉", "吉安鄉", "壽豐鄉", "光復鄉", "豐濱鄉", "瑞穗鄉", "富里鄉", "秀林鄉", "萬榮鄉", "卓溪鄉"], "臺東縣": ["臺東市", "成功鎮", "關山鎮", "卑南鄉", "鹿野鄉", "池上鄉", "東河鄉", "長濱鄉", "太麻里鄉", "大武鄉", "綠島鄉", "海端鄉", "延平鄉", "金峰鄉", "達仁鄉", "蘭嶼鄉"], "澎湖縣": ["馬公市", "湖西鄉", "白沙鄉", "西嶼鄉", "望安鄉", "七美鄉"], "金門縣": ["金城鎮", "金湖鎮", "金沙鎮", "金寧鄉", "烈嶼鄉", "烏坵鄉"], "連江縣": ["南竿鄉", "北竿鄉", "莒光鄉", "東引鄉"] };
+
+function askUserConfirm(title, desc, callback) {
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmDesc').textContent = desc;
+    document.getElementById('confirmLayer').style.display = 'flex';
+    const btn = document.getElementById('confirmExecuteBtn');
+    btn.onclick = () => { hideConfirm(); callback(); };
+}
+function hideConfirm() { document.getElementById('confirmLayer').style.display = 'none'; }
+function showCustomAlert(title, desc) { askUserConfirm(title, desc, hideConfirm); }
+
+async function init() {
+    populateCityTown();
+    await fetchData();
+}
+
+async function fetchData(keepFilter = false) {
+    try {
+        const res = await fetch(`${API_URL}/cwa`);
+        allData = await res.json();
+        if (keepFilter) {
+            search(false); 
+        } else {
+            filteredData = [...allData];
+            currentPage = 1;
+            render();
+        }
+    } catch (e) {
+        document.getElementById('rows').innerHTML = '<div class="empty">連線後端失敗</div>';
+    }
+}
+
+function render() {
+    const rowContainer = document.getElementById('rows');
+    rowContainer.innerHTML = '';
+    const total = filteredData.length;
+    pageSize = parseInt(document.getElementById('pageSizeSelect').value) || 25;
+    const totalPages = Math.ceil(total / pageSize) || 1;
+    
+    if(currentPage > totalPages) currentPage = totalPages;
+    if(currentPage < 1) currentPage = 1;
+
+    const start = (currentPage - 1) * pageSize;
+    const pageData = filteredData.slice(start, start + pageSize);
+    
+    document.getElementById('countText').textContent = `共 ${total} 筆資料`;
+    
+    if (pageData.length === 0) {
+        rowContainer.innerHTML = '<div class="empty">查無符合條件的資料</div>';
+    } else {
+        pageData.forEach((e, i) => {
+            const row = document.createElement('div');
+            row.className = 'list-row';
+            row.innerHTML = `
+                <div class="col-1">${start + i + 1}</div>
+                <div class="col-2">${e.id}</div>
+                <div class="col-3">${e.name}</div>
+                <div class="col-4">${e.city || ''}</div>
+                <div class="col-5">${e.town || ''}</div>
+                <div class="col-6">
+                    <button class="icon-btn" onclick="openModal('${e.id}','${e.name}','${e.account || ''}','${e.password || ''}')">設定</button>
+                </div>`;
+            rowContainer.appendChild(row);
+        });
+    }
+    renderPagination(totalPages);
+}
+
+function renderPagination(totalPages) {
+    const top = document.getElementById('topPagination');
+    const bottom = document.getElementById('bottomPagination');
+    top.innerHTML = ''; bottom.innerHTML = '';
+    
+    const actualTotal = totalPages < 1 ? 1 : totalPages;
+
+    const createSpan = (txt, isDis, isCur, page) => {
+        const s = document.createElement('span');
+        s.textContent = txt;
+        s.className = (isDis ? 'disabled' : '') + (isCur ? ' current' : '');
+        if(!isDis && !isCur) s.onclick = () => { 
+            currentPage = page; 
+            render(); 
+            document.getElementById('listWrapper').scrollTop = 0;
+        };
+        return s;
+    };
+
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(actualTotal, currentPage + 2);
+
+    // 頂部
+    top.appendChild(createSpan('第一頁', currentPage === 1, false, 1));
+    for (let i = startPage; i <= endPage; i++) {
+        top.appendChild(createSpan(i, false, i === currentPage, i));
+    }
+    top.appendChild(createSpan('最後一頁', currentPage === actualTotal, false, actualTotal));
+
+    // 底部 (含上一頁 / 下一頁)
+    bottom.appendChild(createSpan('上一頁', currentPage === 1, false, currentPage - 1));
+    for (let i = startPage; i <= endPage; i++) {
+        bottom.appendChild(createSpan(i, false, i === currentPage, i));
+    }
+    bottom.appendChild(createSpan('下一頁', currentPage === actualTotal, false, currentPage + 1));
+}
+
+function search(resetPage = true) {
+    const city = document.getElementById('citySelect').value;
+    const town = document.getElementById('townSelect').value;
+    const id = document.getElementById('idInput').value.trim().toLowerCase();
+    const name = document.getElementById('nameInput').value.trim().toLowerCase();
+    
+    if(resetPage) currentPage = 1;
+    
+    filteredData = allData.filter(e => {
+        const dCity = (e.city || '').replace('台', '臺');
+        const sCity = city.replace('台', '臺');
+        return (city === '' || city === '-' || dCity === sCity) && 
+               (town === '' || town === '-' || e.town === town) &&
+               (id === '' || e.id.toLowerCase().includes(id)) &&
+               (name === '' || e.name.toLowerCase().includes(name));
+    });
+    render();
+}
+
+function changePageSize() {
+    pageSize = parseInt(document.getElementById('pageSizeSelect').value);
+    currentPage = 1;
+    render();
+}
+
+function openModal(id, name, account, pwd) {
+    document.getElementById('mId').value = id;
+    document.getElementById('mName').value = name;
+    document.getElementById('mAccount').value = account;
+    const pwdInput = document.getElementById('mPwd');
+    pwdInput.value = (pwd && pwd.trim() !== '') ? pwd : '';
+    document.getElementById('modal').style.display = 'flex';
+}
+function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+function handleConfirmSave() {
+    const acc = document.getElementById('mAccount').value.trim();
+    const pwd = document.getElementById('mPwd').value;
+    const id = document.getElementById('mId').value;
+    if(!acc) return showCustomAlert("提示", "帳號不能為空");
+    if(!pwd || pwd.trim() === '') return showCustomAlert("提示", "密碼不能為空");
+    askUserConfirm("儲存設定", `確定要儲存主機 [ ${id} ] 的氣象署連線設定並發布至 MQTT 嗎？`, confirmSave);
+}
+
+async function confirmSave() {
+    const payload = {
+        id: document.getElementById('mId').value,
+        account: document.getElementById('mAccount').value.trim(),
+        password: document.getElementById('mPwd').value
+    };
+    try {
+        const res = await fetch(`${API_URL}/cwa`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+            closeModal();
+            await fetchData(true);
+            showCustomAlert("成功", "設定已儲存並發布成功。");
+        } else {
+            showCustomAlert("失敗", "儲存失敗，請檢查後端連線。");
+        }
+    } catch (e) {
+        showCustomAlert("錯誤", "連線後端發生異常。");
+    }
+}
+
+function populateCityTown() {
+    const citySelect = document.getElementById('citySelect');
+    const townSelect = document.getElementById('townSelect');
+    citySelect.innerHTML = '<option value="-">-</option>';
+    Object.keys(taiwanDistricts).sort().forEach(city => {
+        const o = document.createElement('option'); o.value = o.textContent = city; citySelect.appendChild(o);
+    });
+    citySelect.onchange = () => {
+        const selectedCity = citySelect.value;
+        townSelect.innerHTML = '<option value="-">-</option>';
+        if (selectedCity && taiwanDistricts[selectedCity]) {
+            taiwanDistricts[selectedCity].forEach(town => {
+                const o = document.createElement('option'); o.value = o.textContent = town; townSelect.appendChild(o);
+            });
+        }
+    };
+}
+
+function scrollToTop() { document.getElementById('listWrapper').scrollTop = 0; }
+document.getElementById('listWrapper').addEventListener('scroll', () => { 
+    document.getElementById('topBtn').style.display = document.getElementById('listWrapper').scrollTop > 120 ? 'block' : 'none'; 
+});
+
+init();
+</script>
+</body>
+</html>

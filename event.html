@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>事件紀錄</title>
+<style>
+/* --- 完整保留您原有的 UI 樣式 --- */
+:root{
+  --bg:#6c6c6c; --card:#ffffff; --primary:#002b88; --primary-light:#3b82f6;
+  --danger:#ef4444; --muted:#6b7280; --shadow:0 6px 18px rgba(15,23,42,0.08);
+  --radius:12px;
+  font-family:-apple-system, BlinkMacSystemFont,'Segoe UI', Roboto,'Noto Sans TC','Microsoft JhengHei',sans-serif;
+}
+html,body{ height:100%; margin:0; background:var(--bg);}
+body{ padding:24px; display:flex; justify-content:center; }
+.card{ width:100%; max-width:1300px; background:var(--card); border-radius:0; box-shadow:var(--shadow); overflow:hidden; display:flex; flex-direction:column; height:95vh;}
+.header{ display:flex; align-items:center; justify-content:flex-start; padding:16px 20px; background:var(--primary); color:white; }
+.title{ font-size:20px; font-weight:600; }
+
+/* 搜尋與清單樣式 */
+.search-row { display:flex; align-items:center; gap:12px; padding:12px 20px; background:#f9fafb; border-radius:8px; margin:0 16px 12px 16px; flex-wrap:wrap; }
+.search-row .form-group{ display:flex; align-items:center; gap:6px; }
+.search-row label{ font-size:15px; font-weight:500; color:var(--muted); white-space:nowrap; line-height:32px; }
+.search-row input[type=date], .search-row select{ height:32px; padding:4px 8px; border-radius:6px; border:1px solid #ccc; font-size:14px; background:#fff; }
+.btn-search{ height:32px; padding:0 14px; border-radius:6px; background:var(--primary-light); color:#fff; border:none; cursor:pointer; font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:center; }
+#countText{ padding:8px 20px; color:var(--muted); display:flex; justify-content:space-between; align-items:center; }
+.list-wrapper{ flex:1; overflow-y:auto; }
+.list{ width:100%; border-top:1px solid #eee; border-bottom:1px solid #eee; margin-top:0; }
+.list-head{ display:flex; padding:10px 8px; align-items:center; color:var(--muted); font-weight:700; background:#f9fafb; position:sticky; top:0; z-index:2; }
+.list-row{ display:flex; align-items:center; padding:12px 8px; border-bottom:1px solid #f2f2f2; }
+.col-1{ flex:0 0 60px; text-align:center; color:var(--muted); }
+.col-2{ flex:1; text-align:center; min-width:120px; }
+.col-3{ flex:1; text-align:center; min-width:100px; }
+.col-4{ flex:1; text-align:center; min-width:150px; line-height:1.5; font-size: 16px; } 
+.col-5{ flex:1; text-align:center; min-width:100px; }
+.col-6{ flex:0 0 90px; text-align:center; }
+.icon-btn{ padding:6px 12px; border-radius:8px; border:1px solid rgba(0,0,0,0.1); background:transparent; cursor:pointer; font-weight:600; }
+.empty{ padding:28px; text-align:center; color:var(--muted); }
+
+/* --- Modal 彈窗樣式 --- */
+.modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.5); display:none; align-items:center; justify-content:center; z-index:1000; }
+.modal{ background:var(--card); border-radius:var(--radius); overflow:hidden; max-width:1050px; width:95%; max-height:85vh; box-shadow:var(--shadow); display:flex; flex-direction:column; }
+.modal-header{ padding:16px 20px; background:var(--primary); color:white; font-size:18px; font-weight:600; display:flex; justify-content:space-between; align-items:center; }
+.modal-body{ padding:0; overflow:hidden; display:flex; height: 100%; }
+.modal-content-left { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; border-right: 1px solid #eee; }
+.modal-content-right { width: 400px; padding: 20px; display: flex; flex-direction: column; background: #fafafa; }
+
+/* 資訊項樣式 */
+.info-row { display: flex; border-bottom: 1px solid #f0f0f0; padding: 6px 0; font-size: 15px; }
+.info-label { width: 90px; font-weight: 700; color: var(--muted); }
+.info-val { flex: 1; color: #333; }
+
+/* 新增：收合組件樣式 (地區標題) */
+.region-group { margin-bottom: 10px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+.region-header { background: #f8fafc; padding: 10px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 700; color: var(--primary); }
+.region-header:hover { background: #f1f5f9; }
+.region-content { padding: 12px 15px; display: none; background: white; border-top: 1px solid #e2e8f0; }
+/* 啟動狀態 */
+.region-group.active .region-content { display: block; }
+.region-group.active .arrow { transform: rotate(180deg); }
+.arrow { transition: transform 0.3s; font-size: 12px; }
+
+/* 縣市鄉鎮呈像 */
+.section-title { font-size: 17px; font-weight: 700; color: var(--primary); margin-bottom: 12px; border-bottom: 2px solid var(--primary); padding-bottom: 4px; }
+.county-block { margin-bottom: 16px; border-bottom: 1px dashed #eee; padding-bottom: 10px; }
+.county-block:last-child { border-bottom: none; }
+.county-name { font-weight: 700; font-size: 14px; margin-bottom: 6px; color: #444; display: flex; align-items: center; gap: 10px; }
+.max-int-badge { background: var(--danger); color: white; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: normal; }
+.town-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.town-tag { background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 4px; font-size: 12px; border: 1px solid #e2e8f0; }
+
+.modal-footer { padding: 12px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; background: #fff; }
+.map-placeholder { width:100%; height:300px; background:#e5e7eb; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-weight: 600; border: 1px dashed #cbd5e1; }
+
+/* 分頁樣式 (保留您的原始設計) */
+.pagination span{ cursor:pointer; padding:3px 5px; color:var(--primary); font-weight:600; font-size:12px; }
+.pagination span.current{ font-weight:700; text-decoration:underline; cursor:default; color:#111; }
+.pagination span.disabled{ color:#999; cursor:default; }
+.pagination-container{ display:flex; justify-content:center; padding:8px 0; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="header"><div class="title">事件紀錄</div></div>
+  <div class="search-row">
+    <div class="form-group"><label>開始日期</label><input type="date" id="startDate"></div>
+    <div class="form-group"><label>結束日期</label><input type="date" id="endDate"></div>
+    <div class="form-group"><label>每頁筆數</label>
+      <select id="pageSizeSelect">
+        <option value="25">25</option><option value="50">50</option><option value="75">75</option><option value="100">100</option>
+      </select>
+    </div>
+    <button class="btn-search" onclick="searchEvents()">搜尋</button>
+  </div>
+  <div id="countText"><div id="totalCount">共 0 筆資料</div><div id="paginationTop" class="pagination"></div></div>
+  
+  <div class="list-wrapper">
+    <div class="list">
+      <div class="list-head">
+        <div class="col-1">序號</div><div class="col-2">發生時間</div><div class="col-3">芮氏規模</div>
+        <div class="col-4">震央 (經緯度)</div><div class="col-5">深度(km)</div><div class="col-6">瀏覽</div>
+      </div>
+      <div id="rowsContainer"></div>
+    </div>
+  </div>
+  <div class="pagination-container"><div id="paginationBottom" class="pagination"></div></div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <span>地震報告詳情</span>
+      <span style="cursor:pointer; font-size:20px;" onclick="closeModal()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="modal-content-left">
+        <div id="modalBasicInfo"></div>
+        <div class="affected-group">
+          <div class="section-title">各地最大震度</div>
+          <div id="modalAffectedArea"></div>
+        </div>
+      </div>
+      <div class="modal-content-right">
+        <div class="map-placeholder">震央位置圖 (保留區)</div>
+        <p style="font-size:13px; color:#999; margin-top:12px; line-height:1.6;">※ 此圖示為地震發生之經緯度中心位置示意，詳細受災狀況請參考左側區域資訊。</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="icon-btn" onclick="closeModal()">關閉</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = 'http://localhost:5004/api';
+let currentPage = 1;
+let pageSize = 25;
+let allData = [];
+
+const USERNAME = JSON.parse(sessionStorage.getItem('userData') || '{"username":"guest"}').username;
+
+window.onload = () => { loadHistory(); };
+
+async function loadHistory() {
+    const container = document.getElementById('rowsContainer');
+    container.innerHTML = '<div class="empty">載入中...</div>';
+    const start = document.getElementById('startDate').value;
+    const end = document.getElementById('endDate').value;
+    
+    try {
+        const res = await fetch(`${API_BASE}/earthquake_list?username=${USERNAME}&start_date=${start}&end_date=${end}`);
+        const result = await res.json();
+        allData = result.data || [];
+        render();
+    } catch (err) { container.innerHTML = '<div class="empty" style="color:var(--danger)">連線失敗</div>'; }
+}
+
+function render() {
+    const container = document.getElementById('rowsContainer');
+    container.innerHTML = '';
+    pageSize = parseInt(document.getElementById('pageSizeSelect').value);
+    
+    if (allData.length === 0) {
+        document.getElementById('totalCount').textContent = '共 0 筆資料';
+        container.innerHTML = '<div class="empty">目前無相關案場之地震紀錄</div>';
+        return;
+    }
+
+    document.getElementById('totalCount').textContent = `共 ${allData.length} 筆資料`;
+    const startIdx = (currentPage - 1) * pageSize;
+    const pageData = allData.slice(startIdx, startIdx + pageSize);
+
+    pageData.forEach((e, idx) => {
+        const row = document.createElement('div');
+        row.className = 'list-row';
+        row.innerHTML = `
+            <div class="col-1">${startIdx + idx + 1}</div>
+            <div class="col-2">${e.send_time}</div>
+            <div class="col-3">${parseFloat(e.magnitude).toFixed(1)}</div>
+            <div class="col-4"><div class="geo-info">東經：${e.epicenter_lon}<br>北緯：${e.epicenter_lat}</div></div>
+            <div class="col-5">${e.depth ?? '-'}</div>
+            <div class="col-6"><button class="icon-btn" onclick="viewDetail('${e.id}')">瀏覽</button></div>
+        `;
+        container.appendChild(row);
+    });
+    renderPagination(allData.length);
+}
+
+// 修改點：viewDetail 加入收合邏輯
+function viewDetail(id) {
+    const e = allData.find(item => item.id === id);
+    if (!e) return;
+
+    // 1. 基本資訊
+    document.getElementById('modalBasicInfo').innerHTML = `
+        <div class="info-row"><div class="info-label">發生時間</div><div class="info-val">${e.send_time}</div></div>
+        <div class="info-row"><div class="info-label">芮氏規模</div><div class="info-val">${parseFloat(e.magnitude).toFixed(1)}</div></div>
+        <div class="info-row"><div class="info-label">地震深度</div><div class="info-val">${e.depth ?? '-'} km</div></div>
+        <div class="info-row"><div class="info-label">震央位置</div><div class="info-val">東經 ${e.epicenter_lon} 度，北緯 ${e.epicenter_lat} 度</div></div>
+    `;
+
+    // 2. 影響區域 (收合式渲染)
+    const affectedDiv = document.getElementById('modalAffectedArea');
+    affectedDiv.innerHTML = '';
+
+    if (e.reports && e.reports.length > 0) {
+        e.reports.forEach((region, index) => {
+            const group = document.createElement('div');
+            group.className = 'region-group';
+            // 預設展開第一個地區
+            if(index === 0) group.classList.add('active');
+
+            group.innerHTML = `
+                <div class="region-header" onclick="this.parentElement.classList.toggle('active')">
+                    <span>${region.region_name}</span>
+                    <span class="arrow">▼</span>
+                </div>
+                <div class="region-content">
+                    ${region.counties.map(c => `
+                        <div class="county-block">
+                            <div class="county-name">
+                                ${c.city} <span class="max-int-badge">最大震度 ${c.max_intensity}級</span>
+                            </div>
+                            <div class="town-list">
+                                ${c.towns.map(t => `<span class="town-tag">${t.name} ${t.intensity}級</span>`).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            affectedDiv.appendChild(group);
+        });
+    } else {
+        affectedDiv.innerHTML = '<div style="color:#999; font-size:14px; padding:10px;">暫無詳細分區影響資料</div>';
+    }
+
+    openModal();
+}
+
+function openModal() { document.getElementById('modalBackdrop').style.display = 'flex'; }
+function closeModal() { document.getElementById('modalBackdrop').style.display = 'none'; }
+
+// 保留原始分頁邏輯
+function renderPagination(total) {
+    const totalPages = Math.ceil(total / pageSize);
+    const maxPageButtons = 7;
+    let pages = [];
+    if (totalPages <= maxPageButtons) { for (let i = 1; i <= totalPages; i++) pages.push(i); }
+    else {
+        if (currentPage <= 4) pages = [1, 2, 3, 4, 5, '...', totalPages];
+        else if (currentPage >= totalPages - 3) pages = [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+        else pages = [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+    }
+    const buildHtml = (isTop) => {
+        let html = `<span class="${currentPage === 1 ? 'disabled' : ''}" onclick="${currentPage === 1 ? '' : 'goPage(1)'}">第一頁</span>`;
+        if (!isTop) html = `<span class="${currentPage === 1 ? 'disabled' : ''}" onclick="${currentPage === 1 ? '' : `goPage(${currentPage-1})`}">上一頁</span>`;
+        pages.forEach(p => {
+            if (p === '...') html += `<span>...</span>`;
+            else html += `<span class="${p === currentPage ? 'current' : ''}" onclick="goPage(${p})">${p}</span>`;
+        });
+        if (isTop) html += `<span class="${currentPage === totalPages ? 'disabled' : ''}" onclick="${currentPage === totalPages ? '' : `goPage(${totalPages})`}">最後一頁</span>`;
+        else html += `<span class="${currentPage === totalPages ? 'disabled' : ''}" onclick="${currentPage === totalPages ? '' : `goPage(${currentPage+1})`}">下一頁</span>`;
+        return html;
+    };
+    document.getElementById('paginationTop').innerHTML = buildHtml(true);
+    document.getElementById('paginationBottom').innerHTML = buildHtml(false);
+}
+
+function goPage(p) { currentPage = p; render(); document.querySelector('.list-wrapper').scrollTop = 0; }
+function searchEvents() { currentPage = 1; loadHistory(); }
+document.getElementById('pageSizeSelect').onchange = () => { currentPage = 1; render(); };
+</script>
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>群組地震模擬</title>
+<style>
+:root{
+  --bg:#6c6c6c;
+  --card:#ffffff;
+  --primary:#002b88;
+  --primary-light:#3b82f6;
+  --danger:#ef4444;
+  --muted:#6b7280;
+  --shadow:0 6px 18px rgba(15,23,42,0.08);
+  --radius:12px;
+  font-family:-apple-system, BlinkMacSystemFont,'Segoe UI', Roboto,'Noto Sans TC','Microsoft JhengHei',sans-serif;
+}
+html,body{ height:100%; margin:0; background:var(--bg); }
+body{ padding:24px; display:flex; justify-content:center; }
+.card{ width:100%; max-width:1300px; background:var(--card); border-radius:0; box-shadow:var(--shadow); overflow:hidden; margin-top:20px; }
+.header{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px; background:var(--primary); color:white; }
+.title{ font-size:20px; font-weight:600; }
+.search-row{ display:flex; align-items:center; gap:12px; padding:12px 20px; background:#f9fafb; border-radius:8px; margin:0 16px 12px 16px; flex-wrap:wrap; }
+.search-row .form-group{ display:flex; align-items:center; gap:6px; }
+.search-row label{ font-size:15px; font-weight:500; color:var(--muted); white-space:nowrap; line-height:32px; }
+.search-row input{ height:32px; padding:4px 8px; border-radius:6px; border:1px solid #ccc; font-size:14px; }
+.btn-search{ height:32px; padding:0 14px; border-radius:6px; background:var(--primary-light); color:#fff; border:none; cursor:pointer; font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:center; }
+.list{ width:100%; border-top:1px solid #eee; border-bottom:1px solid #eee; margin-top:0; }
+.list-head{ display:flex; gap:12px; padding:10px 8px; align-items:center; color:var(--muted); font-weight:700; background:#f9fafb; }
+.list-row{ display:flex; align-items:center; gap:12px; padding:12px 8px; border-bottom:1px solid #f2f2f2; }
+.col-1{ width:60px; flex-shrink:0; text-align:center; color:var(--muted); }
+.col-2{ flex:1; min-width:1000px; text-align:center; padding-right:10px; }
+.col-3{ flex:1; min-width:160px; display:flex; gap:6px; align-items:center; justify-content:flex-end; padding-right:12px; }
+.col-3 select{ height:28px; padding:2px 6px; border-radius:6px; border:1px solid #ccc; font-size:14px; }
+.col-3 button{ height:28px; padding:0 10px; border-radius:6px; background:var(--primary-light); color:#fff; border:none; cursor:pointer; font-weight:500; }
+.empty{ padding:28px; text-align:center; color:var(--muted); }
+
+/* 🔴 自定義確認 Modal 樣式 (參考自主機設定) */
+.modal-bg { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:none; align-items:center; justify-content:center; z-index:500; }
+.confirm-card { width: 380px; padding: 24px; background: #fff; border-radius: 12px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+.confirm-title { font-size: 18px; font-weight: 700; margin-bottom: 12px; color: #1f2937; }
+.confirm-desc { font-size: 14px; color: #6b7280; margin-bottom: 24px; line-height: 1.5; }
+.confirm-btns { display: flex; gap: 12px; justify-content: center; }
+.btn-confirm { background: var(--primary-light); color: #fff; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+.btn-close { background: #fff; border: 1px solid #ccc; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; color: #374151; }
+
+#topBtn{ position:fixed; right:20px; bottom:20px; width:44px; height:44px; background:var(--primary-light); color:white; border:none; border-radius:8px; display:none; align-items:center; justify-content:center; cursor:pointer; z-index:200; }
+#topBtn:hover{ background:#0056b3; }
+@media (max-width:720px){
+  .list-head{ font-size:13px; }
+  .col-2,.col-3{ min-width:80px; flex-wrap:wrap; }
+  .search-row{ gap:8px; }
+}
+</style>
+</head>
+<body>
+<div class="card" id="mainCard">
+  <div class="header">
+    <div class="title">群組地震模擬</div>
+  </div>
+
+  <div class="search-row">
+    <div class="form-group">
+      <label for="nameInput">群組名稱</label>
+      <input type="text" id="nameInput" placeholder="輸入群組名稱">
+    </div>
+    <button class="btn-search" onclick="searchGroups()">搜尋</button>
+  </div>
+
+  <div id="countText" style="padding:8px 20px;color:var(--muted)">資料載入中...</div>
+
+  <div class="list" aria-live="polite">
+    <div class="list-head">
+      <div class="col-1">序號</div>
+      <div class="col-2">群組名稱</div>
+      <div class="col-3">模擬地震</div>
+    </div>
+    <div id="rowsContainer">
+      <div class="empty">載入中...</div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="confirmLayer">
+    <div class="confirm-card">
+        <div class="confirm-title" id="confirmTitle">確認動作</div>
+        <div class="confirm-desc" id="confirmDesc">你確定要執行這項操作嗎？</div>
+        <div class="confirm-btns">
+            <button class="btn-close" onclick="hideConfirm()">取消</button>
+            <button id="confirmExecuteBtn" class="btn-confirm">確定</button>
+        </div>
+    </div>
+</div>
+
+<button id="topBtn" onclick="scrollToTop()">TOP</button>
+
+<script>
+// --- 環境參數設定 ---
+const API_BASE = 'http://127.0.0.1:5009/api';
+const userData = JSON.parse(sessionStorage.getItem('userData') || '{"username":"guest"}');
+const USERNAME = userData.username;
+
+let allGroups = [];
+const rowsContainer = document.getElementById('rowsContainer');
+const countText = document.getElementById('countText');
+
+// --- 🔴 確認視窗與警示邏輯 ---
+function askUserConfirm(title, desc, callback) {
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmDesc').textContent = desc;
+    document.getElementById('confirmLayer').style.display = 'flex';
+    const btn = document.getElementById('confirmExecuteBtn');
+    btn.onclick = () => { hideConfirm(); callback(); };
+}
+
+function hideConfirm() { document.getElementById('confirmLayer').style.display = 'none'; }
+function showCustomAlert(title, desc) { askUserConfirm(title, desc, hideConfirm); }
+
+// 1. 從後端獲取群組資料
+async function fetchGroups() {
+    try {
+        const response = await fetch(`${API_BASE}/groups`);
+        if (!response.ok) throw new Error('API 連線失敗');
+        allGroups = await response.json();
+        render(allGroups); 
+    } catch (error) {
+        console.error(error);
+        rowsContainer.innerHTML = `<div class="empty">讀取失敗: ${error.message}</div>`;
+        countText.textContent = '共 0 筆資料';
+    }
+}
+
+// 2. 渲染列表
+function render(list){
+  rowsContainer.innerHTML='';
+  if(!list || list.length===0){
+    rowsContainer.innerHTML='<div class="empty">查無資料</div>';
+    countText.textContent='共 0 筆資料';
+    return;
+  }
+  countText.textContent='共 '+list.length+' 筆資料';
+  list.forEach((g,idx)=>{
+    const row=document.createElement('div');
+    row.className='list-row';
+    row.innerHTML=`
+      <div class="col-1">${idx+1}</div>
+      <div class="col-2">${escapeHtml(g.name)}</div>
+      <div class="col-3">
+        <select id="sim_row_${idx}">
+          <option value="-" selected>-</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5弱">5弱</option>
+          <option value="5強">5強</option>
+          <option value="6弱">6弱</option>
+          <option value="6強">6強</option>
+          <option value="7">7</option>
+        </select>
+        <button onclick="confirmGroupSend('${idx}', '${escapeHtml(g.name)}')">送出</button>
+      </div>
+    `;
+    rowsContainer.appendChild(row);
+  });
+}
+
+function escapeHtml(s){
+  return String(s||'').replaceAll('&','&amp;').replaceAll('<','&lt;')
+    .replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
+}
+
+// 3. 搜尋功能
+function searchGroups(){
+  const nameVal=document.getElementById('nameInput').value.trim().toLowerCase();
+  let filtered = allGroups.filter(g => !nameVal || g.name.toLowerCase().includes(nameVal));
+  render(filtered);
+}
+
+// 4. 🔴 修改點：先彈窗確認，再發送
+function confirmGroupSend(idx, groupName) {
+  const sel = document.getElementById(`sim_row_${idx}`);
+  const val = sel.value;
+
+  if(val === "-"){
+    showCustomAlert("提示", "請先選擇模擬地震等級");
+    return;
+  }
+
+  askUserConfirm(
+    "發送群組模擬", 
+    `確定要對群組 [ ${groupName} ] 發送震度 ${val} 的模擬地震嗎？`, 
+    () => executeGroupSend(idx, groupName, val)
+  );
+}
+
+async function executeGroupSend(idx, groupName, val){
+  try {
+    const response = await fetch(`${API_BASE}/simulate/group`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            group_name: groupName,
+            intensity: val,
+            username: USERNAME
+        })
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+        showCustomAlert("成功", `【群組模擬發送成功】\n 群組名稱: ${groupName}\n，震度: ${val}\n${result.message}`);
+        document.getElementById(`sim_row_${idx}`).value = "-";
+    } else {
+        showCustomAlert("失敗", `發送失敗: ${result.error || '未知錯誤'}`);
+    }
+  } catch (error) {
+    console.error("Simulation error:", error);
+    showCustomAlert("錯誤", "伺服器連線失敗，請檢查後端 (Port 5009) 是否啟動");
+  }
+}
+
+// TOP 按鈕邏輯
+const topBtn=document.getElementById('topBtn');
+window.addEventListener('scroll',()=>{topBtn.style.display=(window.scrollY>120)?'flex':'none';});
+function scrollToTop(){window.scrollTo({top:0,behavior:'smooth'});}
+
+// 初始化
+window.onload = fetchGroups;
+</script>
+</body>
+</html>

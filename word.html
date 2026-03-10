@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>文件下載</title>
+
+  <style>
+    :root{
+      --bg: #6c6c6c;
+      --card: #ffffff;
+      --primary: #002b88;
+      --primary-light: #3b82f6;
+      --muted: #6b7280;
+      --shadow: 0 6px 18px rgba(15,23,42,0.08);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+    }
+
+    html,body{height:100%;}
+    body{
+      margin:0;
+      background:var(--bg);
+      display:flex;
+      align-items:flex-start;
+      justify-content:center;
+      padding:24px;
+    }
+
+    .card{
+      width:100%;
+      max-width:1300px;
+      background:var(--card);
+      border-radius:0;
+      box-shadow:var(--shadow);
+      box-sizing:border-box;
+      margin-top:20px;
+      overflow:hidden;
+    }
+
+    .header{
+      display:flex;
+      align-items:center;
+      padding:16px 20px;
+      background:var(--primary);
+      color:white;
+    }
+
+    .title{
+      font-size:20px;
+      font-weight:600;
+    }
+
+    .list{
+      width:100%;
+      border-top:1px solid #eee;
+      border-bottom:1px solid #eee;
+    }
+
+    .list-head{
+      display:flex;
+      gap:12px;
+      padding:10px 8px;
+      align-items:center;
+      color:var(--muted);
+      font-weight:700;
+      background:#f9fafb;
+    }
+
+    .list-row{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:12px 8px;
+      border-bottom:1px solid #f2f2f2;
+    }
+
+    /* 欄位配置 */
+    .col-1{width:60px; flex-shrink:0; text-align:center; color:var(--muted)}
+    
+    /* 關鍵修改處：僅針對 col-2 增加左邊距 */
+    .col-2{
+      flex:1; 
+      min-width:160px;
+      padding-left: 80px; /* 您可以調整這個數值，數值越大越往右移 */
+      box-sizing: border-box;
+    }
+    
+    .col-3{width:150px; flex-shrink:0; text-align:center}
+
+    .icon-btn{
+      padding:8px 16px;
+      border-radius:8px;
+      border:1px solid rgba(0,0,0,0.06);
+      background:var(--primary-light);
+      color: white;
+      cursor:pointer;
+      font-weight:600;
+      text-decoration: none;
+      display: inline-block;
+    }
+    
+    .icon-btn.disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .file-name{
+      word-break:break-all;
+    }
+
+    @media (max-width:640px){
+      .col-1{width:48px}
+      .col-2{padding-left: 20px;}
+      .col-3{width:100px}
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="header">
+      <div class="title">文件下載</div>
+    </div>
+
+    <div class="list">
+      <div class="list-head">
+        <div class="col-1">序號</div>
+        <div class="col-2">標題</div>
+        <div class="col-3">下載</div>
+      </div>
+
+      <div id="rowsContainer"></div>
+    </div>
+  </div>
+
+  <script>
+    const MANUAL_DATA = {
+      id: 1,
+      title: "系統操作手冊",
+      url: "" 
+    };
+
+    function render() {
+      const container = document.getElementById('rowsContainer');
+      const row = document.createElement('div');
+      row.className = 'list-row';
+
+      row.innerHTML = `
+        <div class="col-1">${MANUAL_DATA.id}</div>
+        <div class="col-2"><div class="file-name">${MANUAL_DATA.title}</div></div>
+        <div class="col-3">
+          <a class="icon-btn ${MANUAL_DATA.url ? '' : 'disabled'}" 
+             href="${MANUAL_DATA.url || 'javascript:void(0)'}" 
+             ${MANUAL_DATA.url ? 'download="' + MANUAL_DATA.title + '"' : ''}>
+             ${MANUAL_DATA.url ? '下載檔案' : '檔案準備中'}
+          </a>
+        </div>
+      `;
+      container.appendChild(row);
+    }
+    render();
+  </script>
+</body>
+</html>

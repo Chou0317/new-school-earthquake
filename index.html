@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <title>地震感測系統</title>
+
+  <style>
+    /* 保持您原本的所有 CSS 樣式 */
+    body { margin: 0; font-family: Arial, sans-serif; background-color: #6c6c6c; }
+    nav { background: #000; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+    .nav-title { color: white; font-size: 20px; font-weight: bold; cursor: pointer; text-decoration: none; transition: 0.25s; }
+    .nav-title:hover { color: #ffd700; }
+    .nav-right { display: flex; align-items: center; }
+    .nav-right ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 40px; margin-right: 40px; }
+    .nav-right ul li { position: relative; text-align: center; }
+    .nav-right ul li a { color: white; text-decoration: none; font-size: 17px; padding: 6px 15px; display: block; font-weight: bold; text-align: center; }
+    .nav-right ul li:hover > a { color: #ffd700; }
+    .nav-right ul li ul { 
+        display: none; position: absolute; top: 38px; left: 50%; transform: translateX(-50%); 
+        background: #222; padding: 10px 0; border-radius: 6px; min-width: 180px; 
+        text-align: center; z-index: 10; box-shadow: 0 6px 20px rgba(0,0,0,0.4); 
+    }
+    .nav-right ul li:hover ul { display: block; }
+    .nav-right ul li ul li a:hover { color: #ffd700; }
+    iframe { width: 100%; height: 90vh; border: none; }
+  </style>
+</head>
+
+<body>
+
+<nav>
+  <a class="nav-title" onclick="loadPage('earthquake information.html')">地震預警監測系統</a>
+
+  <div class="nav-right">
+    <ul>
+      <li id="parent_0">
+        <a href="#">地震事件</a>
+        <ul>
+          <li id="feature_0_0"><a href="#" onclick="loadPage('event.html')">地震事件紀錄</a></li>
+          <li id="feature_0_1"><a href="#" onclick="loadPage('DIO report.html')">地震發報紀錄</a></li>
+        </ul>
+      </li>
+
+      <li id="parent_1">
+        <a href="#">EWS主機管理</a>
+        <ul>
+          <li id="feature_1_0"><a href="#" onclick="loadPage('2U setting.html')">EWS主機設定</a></li>
+          <li id="feature_1_1"><a href="#" onclick="loadPage('group.html')">EWS主機群組設定</a></li>
+          <li id="feature_1_2"><a href="#" onclick="loadPage('CWA.html')">氣象署連線設定</a></li>
+          <li id="feature_1_3"><a href="#" onclick="loadPage('threshold.html')">地震發報設定</a></li>
+        </ul>
+      </li>
+
+      <li id="parent_2">
+        <a href="#">狀態管理</a>
+        <ul>
+          <li id="feature_2_0"><a href="#" onclick="loadPage('monitor.html')">即時監控</a></li>
+          <li id="feature_2_1"><a href="#" onclick="loadPage('state.html')">管理紀錄</a></li>
+        </ul>
+      </li>
+
+      <li id="parent_3">
+        <a href="#">模擬演練</a>
+        <ul>
+          <li id="feature_3_0"><a href="#" onclick="loadPage('simulation.html')">地震模擬</a></li>
+          <li id="feature_3_1"><a href="#" onclick="loadPage('group simulation.html')">地震模擬(群組)</a></li>
+          <li id="feature_3_2"><a href="#" onclick="loadPage('simulation schedule.html')">地震模擬排程</a></li>
+        </ul>
+      </li>
+
+      <li id="parent_4">
+        <a href="#">文件下載</a>
+        <ul>
+          <li id="feature_4_0"><a href="#" onclick="loadPage('word.html')">文件下載</a></li>
+        </ul>
+      </li>
+
+      <li id="parent_5">
+        <a href="#">後台設定</a>
+        <ul>
+          <li id="feature_5_0"><a href="#" onclick="loadPage('permissions.html')">群組管理</a></li>
+          <li id="feature_5_1"><a href="#" onclick="loadPage('account.html')">帳號管理</a></li>
+          <li id="feature_5_3"><a href="#" onclick="loadPage('password.html')">變更密碼</a></li>
+          <li id="feature_5_2"><a href="#" onclick="loadPage('backend.html')">後台紀錄</a></li>
+          <li><a href="#" onclick="logout()">登出</a></li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+</nav>
+
+<iframe id="contentFrame" src="earthquake information.html"></iframe>
+
+<script>
+  const API_BASE = 'http://127.0.0.1:5001/api';
+
+  function loadPage(filename) {
+    document.getElementById("contentFrame").src = filename;
+  }
+
+  // ===== 登出邏輯：先通知後端再清除 Session =====
+  async function logout() {
+    const userDataString = sessionStorage.getItem('userData');
+    
+    if (userDataString) {
+      const userData = JSON.parse(userDataString);
+      try {
+        // 發送 POST 請求到後端登出 API
+        await fetch(`${API_BASE}/logout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: userData.username,
+            name: userData.name
+          })
+        });
+      } catch (err) {
+        console.error("登出 Log 紀錄失敗:", err);
+      }
+    }
+
+    // 清除前端暫存並跳轉
+    sessionStorage.clear();
+    window.location.href = "login.html";
+  }
+
+  // ===== 權限聯動邏輯 =====
+  function applyPermissions() {
+    const userDataString = sessionStorage.getItem('userData');
+    
+    if (!userDataString) {
+      window.location.href = "login.html";
+      return;
+    }
+
+    const userData = JSON.parse(userDataString);
+    const perms = userData.permissions; 
+
+    if (!perms) return;
+
+    // 1. 隱藏子項目
+    Object.keys(perms).forEach(key => {
+      if (perms[key] === "off") {
+        const element = document.getElementById(`feature_${key}`);
+        if (element) {
+          element.style.display = "none";
+        }
+      }
+    });
+
+    // 2. 檢查父選單
+    for (let i = 0; i <= 5; i++) {
+      const parent = document.getElementById(`parent_${i}`);
+      if (parent) {
+        const subItems = parent.querySelectorAll('ul li[id^="feature_"]');
+        const visibleItems = Array.from(subItems).filter(li => li.style.display !== 'none');
+        
+        if (visibleItems.length === 0) {
+          parent.style.display = "none";
+        }
+      }
+    }
+  }
+
+  // 頁面載入後執行權限檢查
+  window.onload = applyPermissions;
+</script>
+
+</body>
+</html>

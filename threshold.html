@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>地震發報設定</title>
+
+<style>
+:root{
+  --bg:#6c6c6c;
+  --card:#fff;
+  --primary:#002b88;
+  --primary-light:#3b82f6;
+  --muted:#6b7280;
+  --shadow:0 6px 18px rgba(15,23,42,0.08);
+  --radius:12px;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans TC','Microsoft JhengHei',sans-serif;
+}
+
+html,body{height:100%;margin:0;background:var(--bg);}
+body{padding:24px;display:flex;justify-content:center;}
+.card{width:100%;max-width:1300px;background:var(--card);border-radius:0;box-shadow:var(--shadow);overflow:hidden; display:flex; flex-direction:column; height:95vh;}
+.header{padding:16px 20px;background:var(--primary);color:#fff;font-size:20px;font-weight:600;}
+
+.search-row{display:flex;gap:12px;align-items:center;padding:12px 20px;background:#f9fafb;flex-wrap:wrap;}
+.search-row label{color:var(--muted);font-weight:500; font-size:14px;}
+.search-row select{height:32px;padding:4px 8px;border-radius:6px;border:1px solid #ccc; font-size:13px;}
+.btn-search{height:32px;padding:0 16px;border:none;border-radius:6px;background:var(--primary-light);color:#fff;font-weight:600;cursor:pointer;}
+.btn-close{ height:32px; padding:0 16px; border-radius:6px; border:1px solid #ccc; background:#ffffff; color:#374151; font-weight:600; font-size:14px; cursor:pointer;}
+
+.count{
+  padding:8px 20px;
+  color:var(--muted);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:14px;
+}
+
+.list-wrapper{flex:1; overflow-y:auto;}
+.list{border-top:1px solid #eee; width:100%;}
+.list-head,
+.list-row{display:flex;gap:12px; padding:0 10px;}
+.list-head {
+    background:#f9fafb;
+    font-weight:700;
+    color:var(--muted);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+.list-head div,
+.list-row div {
+    text-align:center;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:44px;
+}
+.list-row{border-top:1px solid #f2f2f2;line-height:1.2;}
+.col-1 { width:50px; }
+.col-2, .col-3, .col-4, .col-5, .col-6, .col-7 { flex:1; min-width:80px; }
+.col-8 { width:120px; }
+.icon-btn{padding:6px 10px;border-radius:8px;border:1px solid #ddd;background:#fff;cursor:pointer;font-weight:600;}
+.icon-btn:hover{background:#f3f4f6;}
+.empty{padding:28px;text-align:center;color:var(--muted); width:100%;}
+
+/* 🔴 頁碼樣式：同步主機設定 (細體、藍色文字、底線效果) */
+.pagination{ display:flex; gap:4px; flex-wrap:wrap; }
+.pagination span{ cursor:pointer; padding:3px 5px; color:var(--primary); font-weight:600; font-size:12px; }
+.pagination span.current{ font-weight:700; text-decoration:underline; cursor:default; color:#111; }
+.pagination span.disabled{ color:#999; cursor:default; }
+.pagination-container{ display:flex; justify-content:center; padding:8px 0; background:#fff; border-top:1px solid #eee; }
+
+/* Modal */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:100;}
+.modal{background:#fff;border-radius:12px;width:92%;max-width:520px;overflow:hidden;}
+.modal-header{padding:14px 18px;background:var(--primary);color:#fff;font-weight:600;}
+.modal-body{padding:18px;}
+.modal-footer{padding:12px 18px;background:#f9fafb;display:flex;justify-content:flex-end;gap:8px;}
+.modal-body .form-group{margin-bottom:14px;}
+.modal-body label{display:block;font-weight:600;margin-bottom:6px;}
+.modal-body input,
+.modal-body select{width:100%;height:34px;border-radius:6px;border:1px solid #ccc;padding:4px 8px;}
+.modal-body input[disabled]{background:#f3f4f6;}
+
+/* 確認卡片 */
+#confirmLayer { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:none; align-items:center; justify-content:center; z-index:500; }
+.confirm-card { width: 380px; padding: 24px; background: #fff; border-radius: 12px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+.confirm-title { font-size: 18px; font-weight: 700; margin-bottom: 12px; color: #1f2937; }
+.confirm-desc { font-size: 14px; color: #6b7280; margin-bottom: 24px; line-height: 1.5; }
+.confirm-btns { display: flex; gap: 12px; justify-content: center; }
+
+#topBtn{position:fixed;right:20px;bottom:20px;width:44px;height:44px;border:none;border-radius:8px;background:var(--primary-light);color:#fff;display:none;cursor:pointer;z-index:200;}
+</style>
+</head>
+
+<body>
+<div class="card">
+  <div class="header">地震發報設定</div>
+
+  <div class="search-row">
+    <label>縣市</label>
+    <select id="citySelect"></select>
+    <label>鄉鎮</label>
+    <select id="townSelect"><option value="-">全部</option></select>
+    <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+      <label style="margin:0">每頁筆數</label>
+      <select id="pageSizeSelect" onchange="changePageSize()">
+        <option value="25" selected>25</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+      </select>
+    </div>
+    <button class="btn-search" onclick="search()">搜尋</button>
+  </div>
+
+  <div class="count" id="countText">
+    <div id="totalCount">共 0 筆資料</div>
+    <div id="paginationTop" class="pagination"></div>
+  </div>
+
+  <div class="list-wrapper" id="listWrapper">
+    <div class="list">
+      <div class="list-head">
+        <div class="col-1">序號</div>
+        <div class="col-2">ID</div>
+        <div class="col-3">縣市</div>
+        <div class="col-4">鄉鎮</div>
+        <div class="col-5">案場名稱</div>
+        <div class="col-6">門檻</div>
+        <div class="col-7">發報時間</div>
+        <div class="col-8">操作</div>
+      </div>
+      <div id="rows"></div>
+    </div>
+  </div>
+
+  <div class="pagination-container">
+    <div id="paginationBottom" class="pagination"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="settingModal">
+  <div class="modal">
+    <div class="modal-header">發報設定</div>
+    <div class="modal-body">
+      <div class="form-group"><label>ID</label><input id="setId" disabled /></div>
+      <div class="form-group">
+        <label>發報門檻</label>
+        <select id="setThreshold">
+          <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+          <option value="5弱">5弱</option><option value="5強">5強</option><option value="6弱">6弱</option><option value="6強">6強</option><option value="7">7</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>發報時間（24 小時制）</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <select id="startH"></select>：<select id="startM"></select><span>～</span><select id="endH"></select>：<select id="endM"></select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-close" onclick="closeSetting()">取消</button>  
+      <button class="btn-search" onclick="handleConfirmSave()">確認</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirmLayer">
+    <div class="confirm-card">
+        <div class="confirm-title" id="confirmTitle">確認動作</div>
+        <div class="confirm-desc" id="confirmDesc">你確定要執行這項操作嗎？</div>
+        <div class="confirm-btns">
+            <button class="btn-close" onclick="hideConfirm()">取消</button>
+            <button id="confirmExecuteBtn" class="btn-search" style="height:38px; padding:0 24px;">確定</button>
+        </div>
+    </div>
+</div>
+
+<button id="topBtn" onclick="scrollToTop()">TOP</button>
+
+<script>
+const API_URL = 'http://127.0.0.1:5000/api';
+let allData = [];      
+let filteredData = []; 
+let currentPage = 1;
+let pageSize = 25;
+
+const taiwanDistricts = { "基隆市": ["仁愛區", "信義區", "中正區", "中山區", "安樂區", "暖暖區", "七堵區"], "台北市": ["中正區", "大同區", "中山區", "松山區", "大安區", "萬華區", "信義區", "士林區", "北投區", "內湖區", "南港區", "文山區"], "新北市": ["板橋區", "三重區", "中和區", "永和區", "新莊區", "新店區", "樹林區", "鶯歌區", "三峽區", "淡水區", "汐止區", "瑞芳區", "土城區", "蘆洲區", "五股區", "泰山區", "林口區", "深坑區", "石碇區", "坪林區", "三芝區", "石門區", "八里區", "平溪區", "雙溪區", "貢寮區", "金山區", "萬里區", "烏來區"], "桃園市": ["桃園區", "中壢區", "大溪區", "楊梅區", "蘆竹區", "大園區", "龜山區", "八德區", "龍潭區", "平鎮區", "新屋區", "觀音區", "復興區"], "新竹市": ["東區", "北區", "香山區"], "新竹縣": ["竹北市", "竹東鎮", "新埔鎮", "關西鎮", "湖口鄉", "新豐鄉", "芎林鄉", "橫山鄉", "北埔鄉", "寶山鄉", "峨眉鄉", "尖石鄉", "五峰鄉"], "苗栗縣": ["苗栗市", "頭份市", "竹南鎮", "後龍鎮", "通霄鎮", "苑裡鎮", "卓蘭鎮", "造橋鄉", "西湖鄉", "頭屋鄉", "公館鄉", "銅鑼鄉", "三義鄉", "大湖鄉", "獅潭鄉", "三灣鄉", "南庄鄉", "泰安鄉"], "台中市": ["中區", "東區", "南區", "西區", "北區", "北屯區", "西屯區", "南屯區", "太平區", "大里區", "霧峰區", "烏日區", "豐原區", "後里區", "石岡區", "東勢區", "和平區", "新社區", "潭子區", "大雅區", "神岡區", "大肚區", "沙鹿區", "龍井區", "梧棲區", "清水區", "大甲區", "外埔區", "大安區"], "彰化縣": ["彰化市", "員林市", "和美鎮", "鹿港鎮", "溪湖鎮", "田中鎮", "北斗鎮", "二林鎮", "線西鄉", "伸港鄉", "福興鄉", "秀水鄉", "花壇鄉", "芬園鄉", "大村鄉", "埔鹽鄉", "埔心鄉", "永靖鄉", "社頭鄉", "二水鄉", "田尾鄉", "埤頭鄉", "芳苑鄉", "大城鄉", "竹塘鄉", "溪州鄉"], "南投縣": ["南投市", "埔里鎮", "草屯鎮", "竹山鎮", "集集鎮", "名間鄉", "鹿谷鄉", "中寮鄉", "魚池鄉", "國姓鄉", "水里鄉", "信義鄉", "仁愛鄉"], "雲林縣": ["斗六市", "斗南鎮", "虎尾鎮", "西螺鎮", "土庫鎮", "北港鎮", "古坑鄉", "大埤鄉", "莿桐鄉", "林內鄉", "二崙鄉", "崙背鄉", "麥寮鄉", "東勢鄉", "褒忠鄉", "台西鄉", "元長鄉", "四湖鄉", "口湖鄉", "水林鄉"], "嘉義市": ["東區", "西區"], "嘉義縣": ["太保市", "朴子市", "布袋鎮", "大林鎮", "民雄鄉", "溪口鄉", "新港鄉", "六腳鄉", "東石鄉", "義竹鄉", "鹿草鄉", "水上鄉", "中埔鄉", "竹崎鄉", "梅山鄉", "番路鄉", "大埔鄉", "阿里山鄉"], "台南市": ["中西區", "東區", "南區", "北區", "安平區", "安南區", "永康區", "歸仁區", "新化區", "左鎮區", "玉井區", "楠西區", "南化區", "庫德區", "關廟區", "龍崎區", "官田區", "麻豆區", "佳里區", "西港區", "七股區", "將軍區", "學甲區", "北門區", "新營區", "後壁區", "白河區", "東山區", "六甲區", "下營區", "柳營區", "鹽水區", "善化區", "大內區", "山上區", "新市區", "安定區"], "高雄市": ["楠梓區", "左營區", "鼓山區", "三民區", "鹽埕區", "前金區", "新興區", "苓雅區", "前鎮區", "旗津區", "小港區", "鳳山區", "鳥松區", "大寮區", "林園區", "大樹區", "大社區", "仁武區", "岡山區", "橋頭區", "燕巢區", "阿蓮區", "路竹區", "湖內區", "茄萣區", "永安區", "彌陀區", "梓官區", "旗山區", "美濃區", "六龜區", "甲仙區", "杉林區", "內門區", "茂林區", "桃源區", "那瑪夏區", "田寮區"], "屏東縣": ["屏東市", "潮州鎮", "東港鎮", "恆春鎮", "萬丹鄉", "長治鄉", "麟洛鄉", "九如鄉", "里港鄉", "高樹鄉", "鹽埔鄉", "內埔鄉", "竹田鄉", "萬巒鄉", "泰武鄉", "來義鄉", "春日鄉", "獅子鄉", "牡丹鄉", "滿州鄉", "車城鄉", "琉球鄉", "枋山鄉", "枋寮鄉", "新埤鄉", "佳冬鄉", "林邊鄉", "南州鄉", "霧台鄉", "三地門鄉", "瑪家鄉", "新園鄉", "崁頂鄉"], "宜蘭縣": ["宜蘭市", "羅東鎮", "蘇澳鎮", "頭城鎮", "礁溪鄉", "壯圍鄉", "員山鄉", "冬山鄉", "五結鄉", "三星鄉", "大同鄉", "南澳鄉"], "花蓮縣": ["花蓮市", "鳳林鎮", "玉里鎮", "新城鄉", "吉安鄉", "壽豐鄉", "光復鄉", "豐濱鄉", "瑞穗鄉", "富里鄉", "秀林鄉", "萬榮鄉", "卓溪鄉"], "台東縣": ["台東市", "成功鎮", "關山鎮", "卑南鄉", "鹿野鄉", "池上鄉", "東河鄉", "長濱鄉", "太麻里鄉", "大武鄉", "綠島鄉", "海端鄉", "延平鄉", "金峰鄉", "達仁鄉", "蘭嶼鄉"], "澎湖縣": ["馬公市", "湖西鄉", "白沙鄉", "西嶼鄉", "望安鄉", "七美鄉"], "金門縣": ["金城鎮", "金湖鎮", "金沙鎮", "金寧鄉", "烈嶼鄉", "烏坵鄉"], "連江縣": ["南竿鄉", "北竿鄉", "莒光鄉", "東引鄉"] };
+
+function askUserConfirm(title, desc, callback) {
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmDesc').textContent = desc;
+    document.getElementById('confirmLayer').style.display = 'flex';
+    const btn = document.getElementById('confirmExecuteBtn');
+    btn.onclick = () => { hideConfirm(); callback(); };
+}
+function hideConfirm() { document.getElementById('confirmLayer').style.display = 'none'; }
+function showCustomAlert(title, desc) { askUserConfirm(title, desc, hideConfirm); }
+
+const citySel = document.getElementById('citySelect');
+const townSel = document.getElementById('townSelect');
+const rowContainer = document.getElementById('rows');
+const listWrapper = document.getElementById('listWrapper');
+
+function initCitySelect() {
+    citySel.innerHTML = '<option value="-">-</option>';
+    Object.keys(taiwanDistricts).sort().forEach(c => { citySel.innerHTML += `<option value="${c}">${c}</option>`; });
+    citySel.onchange = () => {
+        townSel.innerHTML = '<option value="-">全部</option>';
+        if (citySel.value !== "-") {
+            taiwanDistricts[citySel.value].forEach(t => { townSel.innerHTML += `<option value="${t}">${t}</option>`; });
+        }
+    };
+}
+
+function initTimeSelect() {
+    const fill = (id, max) => {
+        const el = document.getElementById(id);
+        el.innerHTML = '';
+        for (let i = 0; i < max; i++) el.innerHTML += `<option value="${String(i).padStart(2, '0')}">${String(i).padStart(2, '0')}</option>`;
+    };
+    fill('startH', 24); fill('endH', 24); fill('startM', 60); fill('endM', 60);
+}
+
+async function fetchData(keepFilter = false) {
+    try {
+        const res = await fetch(`${API_URL}/hosts`);
+        allData = await res.json();
+        if (keepFilter) {
+            search(false); 
+        } else {
+            filteredData = [...allData];
+            currentPage = 1;
+            render();
+        }
+    } catch (e) {
+        rowContainer.innerHTML = '<div class="empty">無法讀取資料，請確認後端連線。</div>';
+    }
+}
+
+function render() {
+    rowContainer.innerHTML = '';
+    const total = filteredData.length;
+    pageSize = parseInt(document.getElementById('pageSizeSelect').value) || 25;
+    const totalPages = Math.ceil(total / pageSize) || 1;
+    
+    if(currentPage > totalPages) currentPage = totalPages;
+    if(currentPage < 1) currentPage = 1;
+
+    const start = (currentPage - 1) * pageSize;
+    const pageData = filteredData.slice(start, start + pageSize);
+    
+    document.getElementById('totalCount').textContent = `共 ${total} 筆資料`;
+    
+    if (pageData.length === 0) {
+        rowContainer.innerHTML = '<div class="empty">查無案場資料</div>';
+    } else {
+        pageData.forEach((e, i) => {
+            const threshold = e.threshold || '1';
+            const timeRange = `${e.time_start || '00:00'} ～ ${e.time_end || '23:59'}`;
+            const row = document.createElement('div');
+            row.className = 'list-row';
+            row.innerHTML = `
+                <div class="col-1">${start + i + 1}</div>
+                <div class="col-2">${e.id}</div>
+                <div class="col-3">${e.city || ''}</div>
+                <div class="col-4">${e.town || ''}</div>
+                <div class="col-5">${e.name || ''}</div>
+                <div class="col-6">${threshold}</div>
+                <div class="col-7">${timeRange}</div>
+                <div class="col-8">
+                    <button class="icon-btn" onclick="openSetting('${e.id}')">發報設定</button>
+                </div>`;
+            rowContainer.appendChild(row);
+        });
+    }
+    renderPagination(totalPages);
+}
+
+function renderPagination(totalPages) {
+    const top = document.getElementById('paginationTop');
+    const bottom = document.getElementById('paginationBottom');
+    top.innerHTML = ''; bottom.innerHTML = '';
+    
+    const actualTotal = totalPages < 1 ? 1 : totalPages;
+
+    const createSpan = (txt, isDis, isCur, page) => {
+        const s = document.createElement('span');
+        s.textContent = txt;
+        s.className = (isDis ? 'disabled' : '') + (isCur ? ' current' : '');
+        if(!isDis && !isCur) s.onclick = () => { 
+            currentPage = page; 
+            render(); 
+            listWrapper.scrollTop = 0;
+        };
+        return s;
+    };
+
+    // 頂部導覽
+    top.appendChild(createSpan('第一頁', currentPage === 1, false, 1));
+    for(let i = Math.max(1, currentPage-2); i <= Math.min(actualTotal, currentPage+2); i++) {
+        top.appendChild(createSpan(i, false, i === currentPage, i));
+    }
+    top.appendChild(createSpan('最後一頁', currentPage === actualTotal, false, actualTotal));
+
+    // 底部導覽 (上一頁 ... 下一頁)
+    bottom.appendChild(createSpan('上一頁', currentPage === 1, false, currentPage - 1));
+    for(let i = Math.max(1, currentPage-2); i <= Math.min(actualTotal, currentPage+2); i++) {
+        bottom.appendChild(createSpan(i, false, i === currentPage, i));
+    }
+    bottom.appendChild(createSpan('下一頁', currentPage === actualTotal, false, currentPage + 1));
+}
+
+function search(resetPage = true) {
+    const city = document.getElementById('citySelect').value;
+    const town = document.getElementById('townSelect').value;
+    if(resetPage) currentPage = 1;
+    filteredData = allData.filter(e => {
+        const dCity = (e.city || '').replace('台', '臺');
+        const sCity = city.replace('台', '臺');
+        return (city == '-' || dCity == sCity) && (town == '-' || town == '全部' || e.town == town);
+    });
+    render();
+}
+
+function changePageSize() {
+    pageSize = parseInt(document.getElementById('pageSizeSelect').value);
+    currentPage = 1;
+    render();
+}
+
+function openSetting(id) {
+    const e = allData.find(x => x.id === id);
+    if (!e) return;
+    document.getElementById('setId').value = e.id;
+    document.getElementById('setThreshold').value = e.threshold || "1";
+    const start = (e.time_start || "00:00").split(':');
+    const end = (e.time_end || "23:59").split(':');
+    document.getElementById('startH').value = start[0] || "00";
+    document.getElementById('startM').value = start[1] || "00";
+    document.getElementById('endH').value = end[0] || "23";
+    document.getElementById('endM').value = end[1] || "59";
+    document.getElementById('settingModal').style.display = 'flex';
+}
+
+function closeSetting() { document.getElementById('settingModal').style.display = 'none'; }
+
+function handleConfirmSave() {
+    const id = document.getElementById('setId').value;
+    askUserConfirm("儲存發報設定", `確定要儲存主機 [ ${id} ] 的設定並發布至 MQTT 嗎？`, saveSetting);
+}
+
+async function saveSetting() {
+    const id = document.getElementById('setId').value;
+    const target = allData.find(x => x.id === id);
+    if (!target) return;
+    const payload = {
+        ...target,
+        threshold: document.getElementById('setThreshold').value,
+        time_start: `${document.getElementById('startH').value}:${document.getElementById('startM').value}`,
+        time_end: `${document.getElementById('endH').value}:${document.getElementById('endM').value}`
+    };
+    try {
+        const res = await fetch(`${API_URL}/hosts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+            closeSetting();
+            await fetchData(true);
+            showCustomAlert("成功", "設定已儲存並發布至 MQTT。");
+        } else {
+            showCustomAlert("失敗", "儲存失敗。");
+        }
+    } catch (e) {
+        showCustomAlert("錯誤", "連線異常。");
+    }
+}
+
+function scrollToTop() { listWrapper.scrollTop = 0; }
+listWrapper.addEventListener('scroll', () => { 
+    document.getElementById('topBtn').style.display = listWrapper.scrollTop > 120 ? 'block' : 'none'; 
+});
+
+initCitySelect(); initTimeSelect(); fetchData();
+</script>
+</body>
+</html>
